@@ -84,7 +84,7 @@ class Profiler:
 
         log_content = [
             f"\n{'=' * 50}",
-            f"{self.title if self.title is not None else ""} Results - {self.end_time.strftime('%Y-%m-%d %H:%M:%S')}",
+            f"{self.title if self.title is not None else ''} Results - {self.end_time.strftime('%Y-%m-%d %H:%M:%S')}",
         ]
 
         if self.memory_usage:
