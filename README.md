@@ -14,22 +14,6 @@ The library will support different scenarios:
 * Few shot anomaly detection 🚧 (Work in progress)
 
 
-## How to Install
-
-Inside the main repository directory, run the following command:
-
-Editable mode (if you need to work on the code):
-
-```bash
-pip install -e ./
-```
-
-Fixed mode (if you just want to use the code):
-
-```bash
-pip install ./
-```
-
 ## How to use the library
 
 The library follows this structure:
@@ -76,6 +60,33 @@ For every main script all its parameters are documented.
 - VisA: [link](https://paperswithcode.com/dataset/visa)
 - RealIAD: [paper](https://arxiv.org/abs/2403.12580)
 - MIIC Dataset: [link](https://github.com/wenbihan/MIIC-IAD) 
+
+**Scenarios**
+
+- Unsupervised: standard VAD scenario where the model is trained on a dataset of normal samples and evaluated on a dataset of normal and abnormal samples.
+
+- Contaminated: model trained on a dataset of both normal and abnormal samples, a certain percentage of abnormal samples (train set contamination).
+- Semi-supervised: model trained on a dataset of mostly normal samples with a small percentage of labeled abnormal samples, leveraging both types of data to improve anomaly detection performance.
+
+- Few-shot: model trained on a dataset of normal samples and a few abnormal samples which are labeled.
+
+- Continual: the model is trained on a specific subset, called task, and then updated with new tasks. The model should be able to perform well on all seen tasks.
+
+## How to Install
+
+Inside the main repository directory, run the following command:
+
+Editable mode (if you need to work on the code):
+
+```bash
+pip install -e ./
+```
+
+Fixed mode (if you just want to use the code):
+
+```bash
+pip install ./
+```
 
 ## Contribute
 
