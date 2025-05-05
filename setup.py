@@ -21,7 +21,7 @@ setup(
     long_description_content_type="text/markdown",
     install_requires=[
         # local requirements
-        f"mcunet @ {Path(current_path, 'moviad', 'backbones', 'mcunet').as_uri()}",
+        f"mcunet @ {Path(current_path, 'moviad', 'backbones', 'mcunet').resolve().as_uri()}",
         # external requirements
         "opencv-python",
     ],
