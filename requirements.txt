@@ -92,7 +92,7 @@ wandb==0.19.7
 wheel==0.45.1
 sphinx
 sphinx-rtd-theme
-torch==2.6.0+cu118
-torchaudio==2.6.0+cu118
+torch==2.6.0
+torchaudio==2.6.0
 torchinfo==1.8.0
-torchvision==0.21.0+cu118
+torchvision==0.21.0
