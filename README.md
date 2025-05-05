@@ -7,11 +7,12 @@
 MoViAD is an Open Source library for easy and modular Visual Anomaly Detection, built for industrial and research purposes. 
 The library contains some State-of-the-Art models with their trainers, standard datasets, evaluator for calculating standard metrics, and a feature extractor.
 The library structure is totally modular, allowing an easy isolation of the components needed for your project. 
-The library will support different scenarios:
-* Standard anomaly detection (model training and evaluation on a given category) ✅
-* Contaminated anomaly detection (model training ed evaluation on a given category with a contaminate training set) ✅
-* Continual anomaly detection (model training and evaluation considering a stream of tasks) 🚧 (Work in progress)
+The library will support different scenarios (see also below):
+* Unsupervised anomaly detection ✅
+* Contaminated anomaly detection ✅
+* Semi-supervised anomaly detection 🚧 (Work in progress)
 * Few shot anomaly detection 🚧 (Work in progress)
+* Continual anomaly detection 🚧 (Work in progress)
 
 
 ## How to use the library
@@ -64,12 +65,9 @@ For every main script all its parameters are documented.
 **Scenarios**
 
 - Unsupervised: standard VAD scenario where the model is trained on a dataset of normal samples and evaluated on a dataset of normal and abnormal samples.
-
 - Contaminated: model trained on a dataset of both normal and abnormal samples, a certain percentage of abnormal samples (train set contamination).
 - Semi-supervised: model trained on a dataset of mostly normal samples with a small percentage of labeled abnormal samples, leveraging both types of data to improve anomaly detection performance.
-
 - Few-shot: model trained on a dataset of normal samples and a few abnormal samples which are labeled.
-
 - Continual: the model is trained on a specific subset, called task, and then updated with new tasks. The model should be able to perform well on all seen tasks.
 
 ## How to Install
@@ -101,7 +99,7 @@ Every contribution must be open with a pull request.
 
 If you use MoViAD in your work, please cite us! 🤗
 
-Works that uses MoViAD: 
+Works that use MoViAD: 
 - "PaSTe: Improving the efficiency of visual anomaly detection at the edge", Manuel Barusco, Francesco Borsatti, Davide Dalle Pezze, Francesco Paissan, Elisabetta Farella, Gian Antonio Susto. [paper](https://arxiv.org/abs/2103.04257)
 - "From Vision to Sound: Advancing Audio Anomaly Detection with Vision-Based Algorithm", Manuel Barusco, Francesco Borsatti, Davide Dalle Pezze, Francesco Paissan, Elisabetta Farella, Gian Antonio Susto. [paper](https://arxiv.org/pdf/2502.18328?)
 
