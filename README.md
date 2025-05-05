@@ -99,7 +99,7 @@ Every contribution must be open with a pull request.
 
 If you use MoViAD in your work, please cite us! 🤗
 
-Works that uses MoViAD: 
+Works that use MoViAD: 
 - "PaSTe: Improving the efficiency of visual anomaly detection at the edge", Manuel Barusco, Francesco Borsatti, Davide Dalle Pezze, Francesco Paissan, Elisabetta Farella, Gian Antonio Susto. [paper](https://arxiv.org/abs/2103.04257)
 - "From Vision to Sound: Advancing Audio Anomaly Detection with Vision-Based Algorithm", Manuel Barusco, Francesco Borsatti, Davide Dalle Pezze, Francesco Paissan, Elisabetta Farella, Gian Antonio Susto. [paper](https://arxiv.org/pdf/2502.18328?)
 
