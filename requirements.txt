@@ -1,5 +1,5 @@
 
-file:../moviad
+file:./
 accelerate==0.23.0
 annotated-types==0.7.0
 calflops==0.3.2
