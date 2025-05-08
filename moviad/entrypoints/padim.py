@@ -11,7 +11,7 @@ from moviad.common.args import Args
 from moviad.datasets.iad_dataset import IadDataset
 from moviad.entrypoints.common import load_datasets
 from moviad.models.padim.padim import Padim
-from moviad.trainers.trainer_padim import PadimTrainer
+from moviad.trainers.trainer_padim import TrainerPadim
 from moviad.datasets.mvtec.mvtec_dataset import MVTecDataset
 from moviad.utilities.evaluator import Evaluator, append_results
 from moviad.utilities.configurations import TaskType, Split
@@ -44,7 +44,7 @@ def train_padim(args: PadimArgs, logger=None) -> None:
         layers_idxs=args.ad_layers,
     )
     padim.to(args.device)
-    trainer = PadimTrainer(
+    trainer = TrainerPadim(
         model=padim,
         device=args.device,
         save_path=args.model_checkpoint_save_path,
@@ -139,30 +139,3 @@ def test_padim(args: PadimArgs, logger=None) -> None:
         pxl_pr: {pxl_pr}
         pxl_pro: {pxl_pro}
         """)
-
-
-def save_results(results_dirpath: str, category: str, seed: int, scores: tuple, backbone: str, ad_layers: tuple,
-                 img_input_size: tuple, output_size: tuple):
-    metrics_savefile = Path(
-        results_dirpath, f"metrics_{backbone}.csv"
-    )
-    # check if the metrics path exists
-    dirpath = os.path.dirname(metrics_savefile)
-    if not os.path.exists(dirpath):
-        os.makedirs(dirpath)
-
-    # save the scores
-    append_results(
-        metrics_savefile,
-        category,
-        seed,
-        *scores,
-        "padim",  # ad_model
-        ad_layers,
-        backbone,
-        "IMAGENET1K_V2",  # NOTE: hardcoded, should be changed
-        None,  # bootstrap_layer
-        -1,  # epochs (not used)
-        img_input_size,
-        output_size,
-    )

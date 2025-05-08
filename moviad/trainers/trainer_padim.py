@@ -12,7 +12,7 @@ class TrainerPadim(Trainer):
         self, 
         model: Padim,  
         train_dataloader: torch.utils.data.DataLoader,
-        test_dataloader: torch.utils.data.DataLoader,
+        eval_dataloader: torch.utils.data.DataLoader,
         device,
         apply_diagonalization=False,
         logger=None,
@@ -24,7 +24,7 @@ class TrainerPadim(Trainer):
         super().__init__(
             model, 
             train_dataloader, 
-            test_dataloader, 
+            eval_dataloader, 
             device, 
             logger
         )
