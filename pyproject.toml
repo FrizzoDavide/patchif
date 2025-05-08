@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moviad"
+version = "0.4"
+authors = [
+    {name = "AMCO-UNIPD", email = "francesco.borsatti.1@phd.unipd.it"},
+]
+description = "A modular and lightweight framework for Visual Anomaly Detection."
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+    "opencv-python",
+    "mcunet @ file://./moviad/backbones/mcunet"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
