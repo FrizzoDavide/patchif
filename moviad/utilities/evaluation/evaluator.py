@@ -7,7 +7,8 @@ from tqdm import tqdm
 
 import torch
 
-from .metrics import *
+from .metrics import MetricLvl, Metric
+
 
 
 def min_max_norm(x):
@@ -24,13 +25,14 @@ class Evaluator:
         device (torch.device): device where to run the model
     """
 
-    def __init__(self, dataloader, device):
+    def __init__(self, dataloader, metrics:list[Metric], device):
         """
         Args:
             test_dataloader (Dataloader): test dataloader, the images should already be normalized
             device (torch.device): device where to run the model
         """
         self.test_dataloader = dataloader
+        self.metrics = metrics
         self.device = device
 
     def evaluate(self, model):
@@ -43,7 +45,7 @@ class Evaluator:
 
         model.eval()
 
-        # Initialize results.
+        # Initialize results
         gt_masks_list, true_img_scores = (list(), list())
         pred_masks, pred_img_scores = (list(), list())
 
@@ -77,8 +79,11 @@ class Evaluator:
         pred_img_scores = np.asarray(pred_img_scores)
 
         pred_masks = min_max_norm(pred_masks)
+        
+        # TODO: Implement using generic metrics
+        
 
-        """Image-level AUROC"""
+        '''"""Image-level AUROC"""
         fpr, tpr, img_roc_auc = cal_img_roc(pred_img_scores, true_img_scores)
 
         """Pixel-level AUROC"""
@@ -111,7 +116,7 @@ class Evaluator:
             "pxl_au_pro": pxl_au_pro
         }
 
-        return metrics
+        return metrics'''
 
            
     def evaluate_single_images(self, model):

@@ -15,15 +15,16 @@ from skimage.measure import label, regionprops
 from moviad.models.patchcore.product_quantizer import ProductQuantizer
 
 
-# the metrics can be computed on the image level or pixel level
-class MetricType(Enum):
+class MetricLvl(Enum):
+    """The metrics can be computed on image or pixel level."""
+
     IMAGE = "img"
     PIXEL = "pxl"
 
 
 class Metric(ABC):
-    def __init__(self, metric_type: MetricType):
-        self.metric_type = metric_type
+    def __init__(self, level: MetricLvl):
+        self.level = level
 
     @property
     @abstractmethod
@@ -36,10 +37,10 @@ class Metric(ABC):
 class F1(Metric):
     @property
     def name(self):
-        return f"{self.metric_type.value}_f1"
+        return f"{self.level.value}_f1"
 
     def compute(self, gt, pred):
-        if self.metric_type == MetricType.PIXEL:
+        if self.level == MetricLvl.PIXEL:
             pred, gt = pred.flatten(), gt.flatten()
         precision, recall, _ = precision_recall_curve(gt, pred)
         a = 2 * precision * recall
@@ -51,10 +52,10 @@ class F1(Metric):
 class RocAuc(Metric):
     @property
     def name(self):
-        return f"{self.metric_type.value}_roc_auc"
+        return f"{self.level.value}_roc_auc"
 
     def compute(self, gt, pred):
-        if self.metric_type == MetricType.PIXEL:
+        if self.level == MetricLvl.PIXEL:
             pred, gt = pred.flatten(), gt.flatten()
         return roc_auc_score(gt, pred)
 
@@ -62,10 +63,10 @@ class RocAuc(Metric):
 class RocCurve(Metric):
     @property
     def name(self):
-        return f"{self.metric_type.value}_fpr_tpr"
+        return f"{self.level.value}_fpr_tpr"
 
     def compute(self, gt, pred):
-        if self.metric_type == MetricType.PIXEL:
+        if self.level == MetricLvl.PIXEL:
             pred, gt = pred.flatten(), gt.flatten()
         fpr, tpr, _ = roc_curve(gt, pred)
         return fpr, tpr
@@ -74,22 +75,22 @@ class RocCurve(Metric):
 class PrAuc(Metric):
     @property
     def name(self):
-        return f"{self.metric_type.value}_pr_auc"
+        return f"{self.level.value}_pr_auc"
 
     def compute(self, gt, pred):
-        if self.metric_type == MetricType.PIXEL:
+        if self.level == MetricLvl.PIXEL:
             pred, gt = pred.flatten(), gt.flatten()
         return average_precision_score(gt, pred)
 
 
 class ProAuc(Metric):
-    def __init__(self, metric_type: MetricType):
-        if metric_type != MetricType.PIXEL:
+    def __init__(self, level: MetricLvl):
+        if level != MetricLvl.PIXEL:
             raise ValueError(
                 "ProAuc metric can only be computed on pixel level. "
-                f"Got {metric_type} instead."
+                f"Got {level} instead."
             )
-        super().__init__(metric_type)
+        super().__init__(level)
 
     @property
     def name(self):
@@ -192,6 +193,8 @@ def compute_product_quantization_efficiency(
     dequantized_coreset = quantizer.decode(compressed_coreset).cpu().numpy()
     distortion = np.linalg.norm(coreset - dequantized_coreset) / np.linalg.norm(coreset)
     return compression_efficiency, distortion
+
+
 # --------------------------------------------------------------------------------
 
 
