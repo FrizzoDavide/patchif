@@ -34,6 +34,7 @@ def compute_product_quantization_efficiency(coreset: np.ndarray, compressed_core
     return compression_efficiency, distortion
 
 
+
 def cal_img_roc(img_scores: np.ndarray, gt_list: list) -> tuple[float, float, float]:
     """
     Calculate image-level roc auc score

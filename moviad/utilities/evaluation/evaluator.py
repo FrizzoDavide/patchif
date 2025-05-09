@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 import torch
 
-from ..utilities.metrics import *
+from .metrics import *
 
 
 def min_max_norm(x):
@@ -24,13 +24,13 @@ class Evaluator:
         device (torch.device): device where to run the model
     """
 
-    def __init__(self, test_dataloader, device):
+    def __init__(self, dataloader, device):
         """
         Args:
             test_dataloader (Dataloader): test dataloader, the images should already be normalized
             device (torch.device): device where to run the model
         """
-        self.test_dataloader = test_dataloader
+        self.test_dataloader = dataloader
         self.device = device
 
     def evaluate(self, model):
