@@ -11,7 +11,7 @@ sys.path.append(os.path.join(script_path, "..", ".."))
 from moviad.models import Stfpm
 from moviad.trainers.trainer_stfpm import train_param_grid_search
 from moviad.datasets.mvtec.mvtec_dataset import MVTecDataset, CATEGORIES
-from moviad.utilities.evaluator import Evaluator, append_results
+from moviad.utilities.evaluation.evaluator import Evaluator, append_results
 from moviad.utilities.configurations import TaskType, Split
 
 
@@ -140,7 +140,7 @@ def main(args):
             model.to(device)
 
             # evaluate the model
-            evaluator = Evaluator(test_dataloader=test_dataloader, device=device)
+            evaluator = Evaluator(dataloader=test_dataloader, device=device)
             scores = evaluator.evaluate(model)
 
             # save the scores

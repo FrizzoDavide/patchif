@@ -7,7 +7,7 @@ import os
 
 from moviad.models.patchcore.patchcore import PatchCore
 from moviad.models.patchcore.kcenter_greedy import CoresetExtractor
-from moviad.utilities.evaluator import Evaluator
+from moviad.utilities.evaluation.evaluator import Evaluator
 from moviad.trainers.trainer import Trainer, TrainerResult
 
 class TrainerPatchCore(Trainer):

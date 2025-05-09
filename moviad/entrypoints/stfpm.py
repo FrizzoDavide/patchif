@@ -11,7 +11,7 @@ from moviad.datasets.iad_dataset import IadDataset
 from moviad.entrypoints.common import load_datasets
 from moviad.models.stfpm.stfpm import Stfpm
 from moviad.trainers.trainer_stfpm import train_param_grid_search
-from moviad.utilities.evaluator import Evaluator, append_results
+from moviad.utilities.evaluation.evaluator import Evaluator, append_results
 
 
 @dataclass
@@ -135,7 +135,7 @@ def test_stfpm(params: STFPMArgs, logger=None) -> None:
         model.to(params.device)
 
         # evaluate the model
-        evaluator = Evaluator(test_dataloader=test_dataloader, device=params.device)
+        evaluator = Evaluator(dataloader=test_dataloader, device=params.device)
         scores = evaluator.evaluate(model, logger)
 
         # save the scores

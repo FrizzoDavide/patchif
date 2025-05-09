@@ -1,4 +1,4 @@
-import os
+from __future__ import annotations
 from tqdm import tqdm
 import torch
 
@@ -9,10 +9,10 @@ from moviad.trainers.trainer import Trainer, TrainerResult
 class TrainerPadim(Trainer):
 
     def __init__(
-        self, 
-        model: Padim,  
+        self,
+        model: Padim,
         train_dataloader: torch.utils.data.DataLoader,
-        eval_dataloader: torch.utils.data.DataLoader,
+        eval_dataloader: torch.utils.data.DataLoader | None,
         device,
         apply_diagonalization=False,
         logger=None,
@@ -21,13 +21,7 @@ class TrainerPadim(Trainer):
         Args:
             device: one of the following strings: 'cpu', 'cuda', 'cuda:0', ...
         """
-        super().__init__(
-            model, 
-            train_dataloader, 
-            eval_dataloader, 
-            device, 
-            logger
-        )
+        super().__init__(model, train_dataloader, eval_dataloader, device, logger)
         self.apply_diagonalization = apply_diagonalization
 
     def train(self):
@@ -42,9 +36,7 @@ class TrainerPadim(Trainer):
         layer_outputs: dict[str, list[torch.Tensor]] = {
             layer: [] for layer in self.model.layers_idxs
         }
-        for x in tqdm(
-            self.train_dataloader, "| feature extraction | train | %s |" 
-        ):
+        for x in tqdm(self.train_dataloader, "| feature extraction | train | %s |"):
             outputs = self.model(x.to(self.device))
             assert isinstance(outputs, dict)
             for layer, output in outputs.items():
@@ -52,19 +44,21 @@ class TrainerPadim(Trainer):
 
         # 2. use the feature maps to get the embeddings
         embedding_vectors = self.model.raw_feature_maps_to_embeddings(layer_outputs)
-        
+
         # 3. fit the multivariate Gaussian distribution
         if self.apply_diagonalization:
-            self.model.fit_multivariate_diagonal_gaussian(embedding_vectors, update_params=True, logger=self.logger)
+            self.model.fit_multivariate_diagonal_gaussian(
+                embedding_vectors, update_params=True, logger=self.logger
+            )
         else:
-            self.model.fit_multivariate_gaussian(embedding_vectors, update_params=True, logger=self.logger)
-        
+            self.model.fit_multivariate_gaussian(
+                embedding_vectors, update_params=True, logger=self.logger
+            )
+
         metrics = self.evaluator.evaluate(self.model)
 
         if self.logger is not None:
-            self.logger.log(
-                metrics
-            )
+            self.logger.log(metrics)
 
         print("End training performances:")
         self.print_metrics(metrics)

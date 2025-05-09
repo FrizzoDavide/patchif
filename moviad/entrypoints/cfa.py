@@ -17,7 +17,7 @@ from moviad.utilities.custom_feature_extractor_trimmed import CustomFeatureExtra
 from moviad.models.cfa.cfa import CFA
 from moviad.trainers.trainer_cfa import TrainerCFA
 from moviad.utilities.configurations import TaskType, Split
-from moviad.utilities.evaluator import Evaluator
+from moviad.utilities.evaluation.evaluator import Evaluator
 
 
 @dataclass

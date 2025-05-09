@@ -1,6 +1,8 @@
+from __future__ import annotations
 import torch
+from typing import Any, Callable
 
-from moviad.utilities.evaluator import Evaluator
+from moviad.utilities.evaluation.evaluator import Evaluator
 
 
 class Trainer:
@@ -9,11 +11,11 @@ class Trainer:
         self,
         model: torch.nn.Module,
         train_dataloader: torch.utils.data.DataLoader,
-        eval_dataloader: torch.utils.data.DataLoader,
+        eval_dataloader: torch.utils.data.DataLoader | None,
         device: torch.device,
-        logger: any,
-        save_path: str = None,
-        saving_criteria: callable = None,
+        logger: Any,
+        save_path: str | None = None,
+        saving_criteria: Callable | None = None,
     ):
         self.model = model
         self.train_dataloader = train_dataloader
@@ -40,6 +42,7 @@ class Trainer:
 
 
 class TrainerResult:
+    # TODO: REMOVE HARD-CODED METRICS
     img_roc_auc: float
     pxl_roc_auc: float
     img_f1: float

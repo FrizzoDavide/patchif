@@ -9,7 +9,7 @@ from torch.utils.data.dataset import Dataset
 from moviad.models.padim.padim import Padim
 from moviad.trainers.trainer_padim import TrainerPadim
 from moviad.datasets.mvtec.mvtec_dataset import MVTecDataset
-from moviad.utilities.evaluator import Evaluator, append_results
+from moviad.utilities.evaluation.evaluator import Evaluator, append_results
 from moviad.utilities.configurations import TaskType, Split
 
 BATCH_SIZE = 8
@@ -52,7 +52,7 @@ def main_train_padim(
     )
     trainer.train()
 
-    evaluator = Evaluator(test_dataloader=test_dataloader, device=device)
+    evaluator = Evaluator(dataloader=test_dataloader, device=device)
     img_roc, pxl_roc, f1_img, f1_pxl, img_pr, pxl_pr, pxl_pro = evaluator.evaluate(
         padim
     )
@@ -96,7 +96,7 @@ def test_padim(
     test_dataloader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     # evaluate the model
-    evaluator = Evaluator(test_dataloader=test_dataloader, device=device)
+    evaluator = Evaluator(dataloader=test_dataloader, device=device)
     img_roc, pxl_roc, f1_img, f1_pxl, img_pr, pxl_pr, pxl_pro = evaluator.evaluate(
         padim
     )
@@ -220,7 +220,7 @@ def main(args):
                 )
 
                 # evaluate the model
-                evaluator = Evaluator(test_dataloader=test_dataloader, device=device)
+                evaluator = Evaluator(dataloader=test_dataloader, device=device)
                 scores = evaluator.evaluate(padim)
 
                 if results_dirpath is not None:

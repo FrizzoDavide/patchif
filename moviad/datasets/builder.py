@@ -1,6 +1,6 @@
 import json
 import os
-from enum import EnumType
+from enum import Enum
 
 from moviad.datasets.iad_dataset import IadDataset
 from moviad.datasets.miic.miic_dataset import MiicDataset, MiicDatasetConfig
@@ -40,7 +40,7 @@ class DatasetConfig:
     def convert_path(self, path):
         return os.path.normpath(path)
 
-class DatasetType(EnumType):
+class DatasetType(Enum):
     MVTec = "mvtec"
     RealIad = "realiad"
     Visa = "visa"

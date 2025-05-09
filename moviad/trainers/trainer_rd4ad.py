@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 
 from moviad.models.rd4ad.rd4ad import RD4AD
-from moviad.utilities.evaluator import Evaluator
+from moviad.utilities.evaluation.evaluator import Evaluator
 from moviad.trainers.trainer import TrainerResult, Trainer
 
 class TrainerRD4AD(Trainer):

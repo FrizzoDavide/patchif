@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from moviad.models.stfpm.stfpm import STFPM
-from moviad.utilities.evaluator import Evaluator
+from moviad.utilities.evaluation.evaluator import Evaluator
 from moviad.trainers.trainer import TrainerResult, Trainer
 
 class TrainerSTFPM(Trainer):

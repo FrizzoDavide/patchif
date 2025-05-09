@@ -1,6 +1,8 @@
+from __future__ import annotations
 import os
 from random import sample
 from typing import Mapping, Union, Any, Dict, List, Tuple
+from dataclasses import dataclass
 
 import numpy as np
 #from profiler import profile
@@ -51,6 +53,19 @@ def idx_to_layer_name(backbone_model_name, idx: Union[Tuple, List]):
     else:
         return idx
 
+@dataclass
+class PadimArgs:
+    train_dataset: IadDataset | None = None
+    test_dataset: IadDataset | None = None
+    category: str | None = None
+    backbone: str | None = None
+    ad_layers: list | None = None
+    model_checkpoint_save_path: str | None = None
+    diagonal_convergence: bool | None = False
+    batched_update: bool | None = False
+    results_dirpath: str | None = None
+    logger = None
+
 
 class Padim(nn.Module):
     HYPERPARAMS = [
@@ -66,11 +81,7 @@ class Padim(nn.Module):
 
     def __init__(
             self,
-            backbone_model_name,
-            class_name,
-            device,
-            layers_idxs: list,
-            diag_cov=False,
+            args: PadimArgs,
     ):
         """
         Args:

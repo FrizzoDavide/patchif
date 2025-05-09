@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from moviad.models.cfa.cfa import CFA
 from moviad.utilities.custom_feature_extractor_trimmed import CustomFeatureExtractor
-from moviad.utilities.evaluator import Evaluator
+from moviad.utilities.evaluation.evaluator import Evaluator
 from moviad.trainers.trainer import TrainerResult, Trainer
 
 

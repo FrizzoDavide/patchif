@@ -12,7 +12,7 @@ from moviad.utilities.custom_feature_extractor_trimmed import CustomFeatureExtra
 from moviad.models.patchcore.patchcore import PatchCore
 from moviad.trainers.trainer_patchcore import TrainerPatchCore
 from moviad.utilities.configurations import TaskType, Split
-from moviad.utilities.evaluator import Evaluator
+from moviad.utilities.evaluation.evaluator import Evaluator
 
 
 @dataclass

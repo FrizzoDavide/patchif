@@ -21,8 +21,8 @@ from moviad.trainers.batched_trainer_patchcore import BatchPatchCoreTrainer
 from moviad.trainers.trainer_patchcore import TrainerPatchCore
 from moviad.utilities.configurations import TaskType, Split
 from moviad.utilities.custom_feature_extractor_trimmed import CustomFeatureExtractor
-from moviad.utilities.evaluator import Evaluator
-from moviad.utilities.metrics import compute_product_quantization_efficiency
+from moviad.utilities.evaluation.evaluator import Evaluator
+from moviad.utilities.evaluation.metrics import compute_product_quantization_efficiency
 from tests.logger.wandb_logger import WandbLogger
 
 transform = transforms.Compose([

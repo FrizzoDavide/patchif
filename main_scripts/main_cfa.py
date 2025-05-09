@@ -3,7 +3,6 @@ import argparse
 import pathlib
 
 import torch
-from torch.utils.data.dataset import Dataset
 from tqdm import tqdm
 
 from moviad.datasets.mvtec.mvtec_dataset import MVTecDataset
@@ -11,7 +10,7 @@ from moviad.utilities.custom_feature_extractor_trimmed import CustomFeatureExtra
 from moviad.models.cfa.cfa import CFA
 from moviad.trainers.trainer_cfa import TrainerCFA
 from moviad.utilities.configurations import TaskType
-from moviad.utilities.evaluator import Evaluator
+from moviad.utilities.evaluation.evaluator import Evaluator
 
 
 def main_train_cfa(dataset_path: str, category: str, backbone: str, ad_layers: list,

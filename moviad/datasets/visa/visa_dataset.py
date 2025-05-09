@@ -45,7 +45,7 @@ class VisaDataset(IadDataset):
                 transforms.ConvertImageDtype(torch.float32),
             ])
 
-    def set_category(self, category: str):
+    def apply_config(self, category: str):
         self.category = category
 
     def load_dataset(self):

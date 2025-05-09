@@ -12,7 +12,7 @@ from moviad.models.padim.padim import Padim
 from moviad.profiler.pytorch_profiler import Profiler
 from moviad.trainers.trainer_padim import TrainerPadim
 from moviad.utilities.configurations import TaskType, Split
-from moviad.utilities.evaluator import Evaluator
+from moviad.utilities.evaluation.evaluator import Evaluator
 from tests.datasets.realiaddataset_test import IMAGE_SIZE
 
 profiler = Profiler()
@@ -88,7 +88,7 @@ class PadimTrainTests(unittest.TestCase):
             apply_diagonalization=True,
         )
 
-        evaluator = Evaluator(test_dataloader=test_dataloader, device=self.args.device)
+        evaluator = Evaluator(dataloader=test_dataloader, device=self.args.device)
 
         with profiler.profile_step():
             trainer.train()
@@ -160,7 +160,7 @@ class PadimTrainTests(unittest.TestCase):
             device=self.args.device,
             apply_diagonalization=False,
         )
-        evaluator = Evaluator(test_dataloader=test_dataloader, device=self.args.device)
+        evaluator = Evaluator(dataloader=test_dataloader, device=self.args.device)
         with profiler.profile_step():
             trainer.train()
             img_roc, pxl_roc, f1_img, f1_pxl, img_pr, pxl_pr, pxl_pro = (

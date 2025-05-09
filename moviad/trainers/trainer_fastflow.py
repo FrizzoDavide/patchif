@@ -5,7 +5,7 @@ import torch
 from torch import Tensor
 from torch import nn
 
-from moviad.utilities.evaluator import Evaluator
+from moviad.utilities.evaluation.evaluator import Evaluator
 from moviad.trainers.trainer import TrainerResult, Trainer
 
 

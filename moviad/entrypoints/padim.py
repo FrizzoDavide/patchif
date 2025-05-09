@@ -1,10 +1,7 @@
-import os, random
-from pathlib import Path
-from datetime import datetime
+from __future__ import annotations
 
 import torch
 from torch.utils.data import DataLoader
-from torch.utils.data.dataset import Dataset
 from dataclasses import dataclass
 
 from moviad.common.args import Args
@@ -12,9 +9,6 @@ from moviad.datasets.iad_dataset import IadDataset
 from moviad.entrypoints.common import load_datasets
 from moviad.models.padim.padim import Padim
 from moviad.trainers.trainer_padim import TrainerPadim
-from moviad.datasets.mvtec.mvtec_dataset import MVTecDataset
-from moviad.utilities.evaluator import Evaluator, append_results
-from moviad.utilities.configurations import TaskType, Split
 
 BATCH_SIZE = 2
 IMAGE_INPUT_SIZE = (224, 224)
@@ -23,20 +17,20 @@ OUTPUT_SIZE = (224, 224)
 
 @dataclass
 class PadimArgs(Args):
-    train_dataset: IadDataset = None
-    test_dataset: IadDataset = None
-    category: str = None
-    backbone: str = None
-    ad_layers: list = None
-    model_checkpoint_save_path: str = None
-    diagonal_convergence: bool = False
-    results_dirpath: str = None
+    train_dataset: IadDataset | None = None
+    test_dataset: IadDataset | None = None
+    category: str | None = None
+    backbone: str | None = None
+    ad_layers: list | None = None
+    model_checkpoint_save_path: str | None = None
+    diagonal_convergence: bool | None = False
+    results_dirpath: str | None = None
     logger = None
 
 
 def train_padim(args: PadimArgs, logger=None) -> None:
     train_dataset, test_dataset = load_datasets(args.dataset_config, args.dataset_type, args.category)
-    padim = Padim(
+    padim = Padi m(
         args.backbone,
         args.category,
         device=args.device,
@@ -44,24 +38,23 @@ def train_padim(args: PadimArgs, logger=None) -> None:
         layers_idxs=args.ad_layers,
     )
     padim.to(args.device)
-    trainer = TrainerPadim(
-        model=padim,
-        device=args.device,
-        save_path=args.model_checkpoint_save_path,
-        data_path=None,
-        class_name=args.category,
-    )
 
     train_dataloader = DataLoader(
         train_dataset, batch_size=args.batch_size, pin_memory=True, drop_last=True
     )
-
-    trainer.train(train_dataloader, logger)
-
     # evaluate the model
     test_dataloader = DataLoader(
         test_dataset, batch_size=args.batch_size, shuffle=True, drop_last=True
     )
+
+    trainer = TrainerPadim(
+        model=padim,
+        train_dataloader=train_dataloader,
+        eval_dataloader=None,
+        device=args.device,
+        logger=logger,
+    )
+    trainer.train()
 
     evaluator = Evaluator(test_dataloader=test_dataloader, device=args.device)
 

@@ -152,7 +152,7 @@ class MiicDataset(IadDataset):
             ),
         ])
 
-    def set_category(self, category: str):
+    def apply_config(self, category: str):
         self.category = category
 
     def __len__(self):
