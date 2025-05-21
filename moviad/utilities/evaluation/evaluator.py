@@ -1,18 +1,21 @@
 from __future__ import annotations
-import os
-from typing import Union, Optional, Tuple
 
-import pandas as pd
+from typing import Callable
 from tqdm import tqdm
-
 import torch
+import numpy as np
 
 from .metrics import MetricLvl, Metric
 
 
-
 def min_max_norm(x):
     return (x - x.min()) / (x.max() - x.min())
+
+
+def append(prev, new, dtype=None, to_numpy=True):
+    new = new.cpu().numpy() if to_numpy else new
+    new = new.astype(dtype) if dtype else new
+    return np.concatenate((prev, new), axis=0)
 
 
 class Evaluator:
@@ -25,209 +28,57 @@ class Evaluator:
         device (torch.device): device where to run the model
     """
 
-    def __init__(self, dataloader, metrics:list[Metric], device):
+    def __init__(self, dataloader, metrics: list[Metric], device):
         """
         Args:
-            test_dataloader (Dataloader): test dataloader, the images should already be normalized
+            dataloader (Dataloader): dataloader on which to compute the metrics
             device (torch.device): device where to run the model
         """
-        self.test_dataloader = dataloader
+        self.dataloader = dataloader
         self.metrics = metrics
         self.device = device
 
-    def evaluate(self, model):
+    def evaluate(self, model, postprocess: Callable = min_max_norm):
         """
         Args:
             model: a model object on which you can call model.predict(batched_images)
                 and returns a tuple of anomaly_maps and anomaly_scores
             output_path (str): path where to store the output masks
         """
-
         model.eval()
 
-        # Initialize results
-        gt_masks_list, true_img_scores = (list(), list())
-        pred_masks, pred_img_scores = (list(), list())
+        # Initialize results as numpy arrays
+        init = lambda *t: (np.empty((0,), dtype=t_) for t_ in t)
+        gt_mask, gt_label, pred_anom_map, pred_anom_score = init(int, *(float,) * 3)
 
-        for images, labels, masks, path in tqdm(self.test_dataloader, desc="Eval"):
-            # get anomaly map and score
-            with torch.no_grad():
-                anomaly_maps, anomaly_scores = model(images.to(self.device))
+        for image, label, mask, path in tqdm(self.dataloader, desc="Eval"):
+            with torch.no_grad():  # get anomaly map and score
+                anom_maps, anom_scores = model(image.to(self.device))
 
-            if anomaly_maps.shape[2:] != masks.shape[2:]:
-                raise Exception(
-                    "The output anomaly maps should have the same resolution as the target masks."
-                    + f"Expected shape: {masks.shape}, got: {anomaly_maps.shape}"
-                )
+            # Append ground truth, anomaly scores, and predicted masks
+            gt_mask = append(gt_mask, mask, dtype=int)
+            gt_label = append(gt_label, label)
+            pred_anom_map = append(pred_anom_map, anom_maps)
+            pred_anom_score = append(pred_anom_score, anom_scores)
 
-            # add true masks and img anomaly scores
-            gt_masks_list.extend(masks.cpu().numpy().astype(int))
-            true_img_scores.extend(labels.cpu().numpy())
+        pred_anom_map = postprocess(pred_anom_map)
 
-            # add predicted masks and img anomaly scores (check for numpy arrays or tensors)
-            if isinstance(anomaly_maps, torch.Tensor):
-                pred_masks.extend(anomaly_maps.cpu().numpy())
-                pred_img_scores.extend(anomaly_scores.cpu().numpy())
-            else:
-                pred_masks.extend(anomaly_maps)
-                pred_img_scores.extend(anomaly_scores)
-
-
-        gt_masks_list = np.asarray(gt_masks_list)
-        true_img_scores = np.asarray(true_img_scores)
-        pred_masks = np.asarray(pred_masks)
-        pred_img_scores = np.asarray(pred_img_scores)
-
-        pred_masks = min_max_norm(pred_masks)
-        
         # TODO: Implement using generic metrics
-        
-
-        '''"""Image-level AUROC"""
-        fpr, tpr, img_roc_auc = cal_img_roc(pred_img_scores, true_img_scores)
-
-        """Pixel-level AUROC"""
-        fpr, tpr, pxl_roc_auc = cal_pxl_roc(gt_masks_list, pred_masks)
-
-        """F1 Score Image-level"""
-        img_f1 = cal_f1_img(pred_img_scores, true_img_scores)
-
-        """F1 Score Pixel-level"""
-        pxl_f1 = cal_f1_pxl(pred_masks, gt_masks_list)
-
-        """Image-level PR-AUC"""
-        img_pr_auc = cal_pr_auc_img(pred_img_scores, true_img_scores)
-
-        """Pixel-level PR-AUC"""
-        pxl_pr_auc = cal_pr_auc_pxl(pred_masks, gt_masks_list)
-
-        """Pixel-level AU-PRO"""
-        pxl_au_pro = cal_pro_auc_pxl(np.squeeze(pred_masks, axis=1), gt_masks_list)
-
-        # TODO: Implement Add False-alarm rate
-
-        metrics = {
-            "img_roc_auc": img_roc_auc,
-            "pxl_roc_auc": pxl_roc_auc,
-            "img_f1": img_f1,
-            "pxl_f1": pxl_f1,
-            "img_pr_auc": img_pr_auc,
-            "pxl_pr_auc": pxl_pr_auc,
-            "pxl_au_pro": pxl_au_pro
-        }
-
-        return metrics'''
-
-           
-    def evaluate_single_images(self, model):
-
-        model.eval()
-
-        # compute the threshold as equal precision and recall on the test dataset
-        pred_anom_score_lst, true_anom_score_lst = [], []
-        pred_anom_map_lst, gt_anom_mask_lst = [], []
-        allpaths = []
-        for images, labels, masks, paths in tqdm(self.test_dataloader):
-            with torch.no_grad():
-                anomaly_maps, anomaly_scores = model(images.to(self.device))
-
-            if isinstance(anomaly_maps, torch.Tensor):
-                anomaly_maps = anomaly_maps.cpu().numpy()
-                anomaly_scores = anomaly_scores.cpu().numpy()
-
-            gt_masks_list = masks.cpu().numpy().astype(int)
-            true_img_scores = labels.cpu().numpy()
-
-            pred_anom_score_lst.extend(anomaly_scores)
-            true_anom_score_lst.extend(true_img_scores)
-            pred_anom_map_lst.extend(anomaly_maps)
-            gt_anom_mask_lst.extend(gt_masks_list)
-            allpaths.extend(paths)
-
-        pred_anom_score_lst = np.asarray(pred_anom_score_lst)
-        true_anom_score_lst = np.asarray(true_anom_score_lst)
-        pred_anom_map_lst = np.asarray(pred_anom_map_lst)
-        gt_anom_mask_lst = np.asarray(gt_anom_mask_lst)
-
-        pred_anom_map_lst = min_max_norm(pred_anom_map_lst)
-
-        # the threshold is the value that minimizes the difference between precision and recall
-        precision, recall, thresholds = precision_recall_curve(
-            gt_anom_mask_lst.flatten(), pred_anom_map_lst.flatten()
-        )
-        threshold = thresholds[np.argmin(np.abs(precision - recall))]
-
-        pred_mask_lst = (pred_anom_map_lst > threshold).astype(int)
-
-        print(
-            len(pred_anom_score_lst),
-            len(true_anom_score_lst),
-            len(pred_mask_lst),
-            len(gt_anom_mask_lst),
-            len(allpaths),
-        )
-
-        metrics = []
-        for pred_anom_score, true_anom_score, pred_anom_mask, gt_anom_mask, path in zip(
-            pred_anom_score_lst,
-            true_anom_score_lst,
-            pred_mask_lst,
-            gt_anom_mask_lst,
-            allpaths,
-        ):
-            gt_anom_mask = gt_anom_mask.flatten()
-            pred_anom_mask = pred_anom_mask.flatten()
-
-            precision = precision_score(gt_anom_mask, pred_anom_mask, zero_division=0)
-            recall = recall_score(gt_anom_mask, pred_anom_mask, zero_division=0)
-            f1 = f1_score(gt_anom_mask, pred_anom_mask, zero_division=0)
-
-            false_alarm_rate = np.sum(
-                (gt_anom_mask == 0) & (pred_anom_mask == 1)
-            ) / np.sum(gt_anom_mask == 0)
-
-            metrics.append(
-                {
-                    "pred_anom_score": pred_anom_score,
-                    "true_anom_score": true_anom_score,
-                    "precision": precision,
-                    "recall": recall,
-                    "f1": f1,
-                    "false_alarm_rate": false_alarm_rate,
-                    "path": path,
-                }
-            )
-        metrics = pd.DataFrame(metrics)
-
-        return metrics, threshold, gt_anom_mask_lst, pred_anom_map_lst
-
-
-    @staticmethod
-    def get_threshold(gt: np.ndarray, score: np.ndarray) -> float:
         """
-        Calculate the segmentation threshold
-
-        Args:
-            gt (np.array)    : ground truth masks
-            score (np.array) : predicted masks
-
-        Returns:
-            threshold (float) : segmentation threshold
+        report = []
+        for metric in metrics:
+            if metric.level == MetricLvl.IMAGE:
+                pred = anom_score
+                gt = labels
+            elif metric.level == MetricLvl.PIXEL:
+                pred = anom_maps
+                gt = masks
+            report.append({metric.name:metric.compute(gt, pred)})
         """
 
-        gt_mask = np.asarray(gt)
-        precision, recall, thresholds = precision_recall_curve(
-            gt_mask.flatten(), score.flatten()
-        )
-        a = 2 * precision * recall
-        b = precision + recall
-        f1 = np.divide(a, b, out=np.zeros_like(a), where=b != 0)
 
-        # consider the threshold with the highest f1 score
-        threshold = thresholds[np.argmax(f1)]
-
-        return threshold
-    
+'''
+TODO: remove this
 def append_results(
     output_path: Union[str, os.PathLike],
     category: str,
@@ -275,3 +126,4 @@ def append_results(
         old_df = pd.read_csv(output_path)
         df = pd.concat([old_df, df], ignore_index=True)
     df.to_csv(output_path, index=False)
+'''
