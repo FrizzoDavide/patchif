@@ -203,3 +203,6 @@ benchmark/patchcore.json
 benchmark/stfpm.json
 
 /wandb
+
+#NOTE: PatchIF gitignore file
+patchif_notes/
