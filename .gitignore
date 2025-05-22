@@ -199,3 +199,6 @@ benchmark/patchcore.json
 benchmark/stfpm.json
 
 /wandb
+
+#NOTE: patchif_tests branch
+patchif_notes/
