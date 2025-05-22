@@ -13,6 +13,9 @@ from torchvision.transforms import transforms
 from tqdm import tqdm
 
 # moviad imports
+#NOTE: AD model → CFA model
+from moviad.models.cfa.cfa import CFA
+
 #NOTE: AD model → PatchCore
 from moviad.models.patchcore.patchcore import PatchCore
 
@@ -25,6 +28,10 @@ from moviad.datasets.realiad.realiad_dataset import RealIadDataset, RealIadClass
 
 #NOTE: Feature Extractor → CustomFeatureExtractor
 from moviad.utilities.custom_feature_extractor_trimmed import CustomFeatureExtractor
+
+print('#'* 50)
+print("All libraries loaded correctly")
+print('#'* 50)
 
 #TODO: Following the code contained in the `trainer_patchcore` function inside `main_patchcore.py`
 
