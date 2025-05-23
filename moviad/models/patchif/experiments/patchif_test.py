@@ -31,7 +31,7 @@ from moviad.datasets.realiad.realiad_dataset import RealIadDataset, RealIadClass
 from moviad.utilities.custom_feature_extractor_trimmed import CustomFeatureExtractor
 
 #NOTE: TaskType
-from moviad.utilities.configurations import TaskType
+from moviad.utilities.configurations import TaskType, Split
 
 parser = argparse.ArgumentParser()
 
@@ -64,28 +64,55 @@ feature_extractor = CustomFeatureExtractor(
 )
 
 
-#TODO: Define and load the dataset using the MVTecDataset class
+#NOTE: Define and load the dataset using the MVTecDataset class
 
 print('#'* 50)
 print("Loading MVTec dataset")
 print('#'* 50)
 
-dataset = MVTecDataset(
+train_dataset = MVTecDataset(
     task = TaskType.SEGMENTATION,
     root = args.dataset_path,
     category = args.category,
-    split = args.split,
+    split = Split.TRAIN,
     norm = True,
     img_size = (224,224),
     gt_mask_size = None,
     preload_imgs = True
 )
 
-ipdb.set_trace()
+train_dataset.load_dataset()
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
+
+test_dataset = MVTecDataset(
+    task = TaskType.SEGMENTATION,
+    root = args.dataset_path,
+    category = args.category,
+    split = Split.TEST,
+    norm = True,
+    img_size = (224,224),
+    gt_mask_size = None,
+    preload_imgs = True
+)
+
+test_dataset.load_dataset()
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
 
 #TODO: Define the model using the PatchCore class
 
+patchcore = PatchCore(
+    device = device,
+    input_size = (224,224),
+    feature_extractor = feature_extractor,
+    num_neighbors = 9,
+    apply_quantization = False,
+    k = 10000
+)
+patchcore.to(device)
+patchcore.train()
+
 #TODO: Define the trainer using the TrainerPatchCore class
+
 
 #TODO: Train the model using the trainer class → at this point after the model is trained
 # I guess that I should be able to access the memory bank of patch features

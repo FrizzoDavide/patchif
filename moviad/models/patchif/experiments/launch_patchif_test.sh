@@ -1,12 +1,14 @@
 #!/bin/bash
 
-script_path="patchif_test.py" 
+# Export the conda environment path to PATH
+# export PATH="/home/davide_frizzo/anaconda3/envs/moviad/bin/:$PATH"
+
+script_path="patchif_test.py"
 backbone="mobilenet_v2"
 ad_layers=("features.4 features.7 features.10")
 category="pill"
-dataset_path="../../../datasets/mvtec/"
-device_num=0
-
+dataset_path="/mnt/disk1/manuel_barusco/CL_VAD/adcl_paper/data/mvtec"
+device_num=1
 
 python $script_path \
   --backbone $backbone \
