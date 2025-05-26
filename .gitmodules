@@ -1,0 +1,3 @@
+[submodule "moviad/models/components/patchif/ExIFFI_Core"]
+	path = moviad/models/components/patchif/ExIFFI_Core
+	url = https://github.com/FrancescoBorsatti/ExIFFI_Core.git
