@@ -58,6 +58,11 @@ class PatchCore(nn.Module):
         if apply_quantization:
             self.product_quantizer = ProductQuantizer()
 
+    @property
+    def name(self) -> str:
+        """Return the name of the model."""
+        return "patchcore"
+
     def load(self, model_state_dict_patch, quantizer_state_dict_path):
         """
         Load the Patchcore model
@@ -402,7 +407,7 @@ class PatchCore(nn.Module):
         axes[2].axis('off')
 
         # Show the plot
-        plt.savefig(str(dirpath + f"/{x_type}_{filename}.jpg"))
+        plt.savefig(str(dirpath + f"/{x_type}_{filename}"))
 
     def get_model_size_and_macs(self):
         sizes = {}

@@ -16,7 +16,7 @@ class TrainerPatchCore(Trainer):
     This class contains the code for training the PatchCore model
 
     Args:
-        patchore_model (PatchCore): model to be trained
+        patchcore_model (PatchCore): model to be trained
         train_dataloder (torch.utils.data.DataLoader): train dataloader
         test_dataloder (torch.utils.data.DataLoader): test dataloader
         device (str): device to be used for the training
@@ -24,15 +24,15 @@ class TrainerPatchCore(Trainer):
 
     def __init__(
         self,
-        patchore_model: PatchCore,
+        patchcore_model: PatchCore,
         train_dataloader: torch.utils.data.DataLoader,
         test_dataloder: torch.utils.data.DataLoader,
-        device: str,
+        device: torch.device,
         coreset_extractor: CoresetExtractor = None,
         logger=None,
     ):
         super().__init__(
-            patchore_model,
+            patchcore_model,
             train_dataloader,
             test_dataloder,
             device,

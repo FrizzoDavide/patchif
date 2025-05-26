@@ -93,7 +93,7 @@ def test_patchcore(dataset_path: str, category: str, backbone: str, ad_layers: l
     pxl_pro: {pxl_pro}
     """)
 
-    # chek for the visual test
+    # check for the visual test
     if visual_test_path:
 
         # Get output directory.
