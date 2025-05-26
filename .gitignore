@@ -202,3 +202,7 @@ benchmark/stfpm.json
 
 #NOTE: patchif_tests branch
 patchif_notes/
+
+#NOTE: png and pth files
+*.png
+*.pth
