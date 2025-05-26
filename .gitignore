@@ -206,3 +206,7 @@ benchmark/stfpm.json
 
 #NOTE: PatchIF gitignore file
 patchif_notes/
+
+#NOTE: png and pth files
+*.png
+*.pth
