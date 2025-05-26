@@ -1,6 +1,6 @@
 """
-Python script to test the first things needed for the patchif project.
-- Try to obtain the memory bank of patch features from the PatchCore model
+Python script to try out the patchif idea → load the memory bank of an already trained
+PatchCore model and try to feed it in input to and ExtendedIsolationForest model and fit it
 """
 
 # general imports
@@ -14,48 +14,31 @@ import gc
 from torchvision.transforms import transforms
 from tqdm import tqdm
 
-# moviad imports
-#NOTE: AD model → CFA model
-# from moviad.models.cfa.cfa import CFA
-
-#NOTE: AD model → PatchCore
 from moviad.models.patchcore.patchcore import PatchCore
-
-#NOTE: Trainer → TrainerPatchCore
-from moviad.trainers.trainer import TrainerResult
-from moviad.trainers.trainer_patchcore import TrainerPatchCore
-
-#NOTE: Datasets → MVTec and RealIad
 from moviad.datasets.mvtec.mvtec_dataset import MVTecDataset, CATEGORIES
-from moviad.datasets.realiad.realiad_dataset import RealIadDataset, RealIadClassEnum
-
-#NOTE: Feature Extractor → CustomFeatureExtractor
-from moviad.trainers.trainer_stfpm import TrainerSTFPM
+from moviad.utilities.configurations import TaskType, Split
 from moviad.utilities.custom_feature_extractor_trimmed import CustomFeatureExtractor, TORCH_BACKBONES, OTHERS_BACKBONES
-
-#NOTE:: Import utility  functions from manage_files.py
 from moviad.utilities.manage_files import generate_path, get_current_time, get_most_recent_file, open_element, save_element
 
-#NOTE: TaskType
-from moviad.utilities.configurations import TaskType, Split
-from moviad.utilities.evaluator import Evaluator
+from exiffi_core.model import ExtendedIsolationForest as EIF
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument("--dataset_name",type=str,default="mvtec",help="Dataset name")
+parser.add_argument("--dataset_path", type=str, help="Path of the directory where the dataset is stored")
 parser.add_argument("--model_name",type=str,default="patchcore",help="Dataset name")
 parser.add_argument("--category", type=str, default="pill", help="Dataset category to test")
 parser.add_argument("--backbone", type=str, default="mobilenet_v2", help="Model backbone")
 parser.add_argument("--ad_layers", type=str, nargs="+", help="List of ad layers")
 parser.add_argument("--device_num", type=int, default=0, help="Number of the CUDA device to use")
-parser.add_argument("--dataset_path", type=str, help="Path of the directory where the dataset is stored")
-parser.add_argument("--save_model", action='store_true', help="Flag to save the model")
-parser.add_argument("--train_model", action='store_true', help="Flag to train the model, otherwise load the state dict of an already saved model")
-parser.add_argument("--anomaly_map", action='store_true', help="Flag to produce the anomaly maps")
+# EIF parameters
+parser.add_argument("--n_estimators", type=int, default=100, help="Number of base estimators in the ensemble")
+parser.add_argument("--max_samples", type=int, default=256, help="Number of samples to draw from X to train each base estimator")
 
 args = parser.parse_args()
 
-setproctitle.setproctitle(f"exp_{args.dataset_name}_{args.category}_{args.model_name}_{args.backbone}")
+
+setproctitle.setproctitle(f"patchif_exp_{args.dataset_name}_{args.category}_{args.model_name}_{args.backbone}")
 
 MODEL_NAMES = (
     "patchcore",
@@ -84,15 +67,6 @@ assert args.backbone in TORCH_BACKBONES or args.backbone in OTHERS_BACKBONES, f"
 device = f"cuda:{args.device_num}" if torch.cuda.is_available() else "cpu"
 device = torch.device(device)
 
-print('#'* 50)
-print("------EXPERIMENT DETAILS------")
-print(f"Dataset: {args.dataset_name}")
-print(f"Category: {args.category}")
-print(f"Backbone: {args.backbone}")
-print(f"AD Layers: {args.ad_layers}")
-print(f"Device: {device}")
-print('#'* 50)
-
 #NOTE: Define the feature extractor (i.e. pre trained CNN) using the CustomFeatureExtractor class
 
 feature_extractor = CustomFeatureExtractor(
@@ -104,21 +78,19 @@ feature_extractor = CustomFeatureExtractor(
     calibration_dataloader=None
 )
 
-#NOTE: Define and load the dataset using the MVTecDataset class
+#NOTE: Define the PatchCore model using the PatchCore class
 
-train_dataset = MVTecDataset(
-    task = TaskType.SEGMENTATION,
-    root = args.dataset_path,
-    category = args.category,
-    split = Split.TRAIN,
-    norm = True,
-    img_size = (224,224),
-    gt_mask_size = None,
-    preload_imgs = True
+patchcore = PatchCore(
+    device = device,
+    input_size = (224, 224),
+    feature_extractor = feature_extractor,
+    num_neighbors = 9,
+    apply_quantization = False,
+    k = 10000
 )
+patchcore.to(device)
 
-train_dataset.load_dataset()
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
+#NOTE: Define and load the test dataset using the MVTecDataset class
 
 test_dataset = MVTecDataset(
     task = TaskType.SEGMENTATION,
@@ -134,19 +106,6 @@ test_dataset = MVTecDataset(
 test_dataset.load_dataset()
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
 
-#NOTE: Define the model using the PatchCore class
-
-patchcore = PatchCore(
-    device = device,
-    input_size = (224, 224),
-    feature_extractor = feature_extractor,
-    num_neighbors = 9,
-    apply_quantization = False,
-    k = 10000
-)
-patchcore.to(device)
-patchcore.train()
-
 #NOTE: Define the model directory path where the model will be saved
 
 model_dirpath = generate_path(
@@ -159,34 +118,6 @@ model_dirpath = generate_path(
         args.backbone,
     ]
 )
-
-#NOTE: Define the trainer using the TrainerPatchCore class
-# and use the `train` method to train the model and get the memory bank
-
-if args.train_model:
-    trainer = TrainerPatchCore(
-        patchcore_model = patchcore,
-        train_dataloader = train_loader,
-        test_dataloder = test_loader,
-        device = device,
-        coreset_extractor = None,
-        logger = None,
-    )
-
-    print('#'* 50)
-    print("Training the model")
-    print('#'* 50)
-    trainer.train()
-
-    if args.save_model:
-        filename=f"{get_current_time()}_{args.dataset_name}_{args.category}_{patchcore.name}_{args.backbone}"
-        save_element(
-            element = patchcore,
-            dirpath = model_dirpath,
-            filename = filename,
-            filetype = "pth",
-            no_time = False
-        )
 
 try:
     model_path = get_most_recent_file(model_dirpath,file_pos=0)
@@ -207,50 +138,33 @@ patchcore = PatchCore(
     k = 1000
 )
 patchcore.load_model(model_path)
-patchcore.eval()
-
-evaluator = Evaluator(test_loader, device)
-metrics = evaluator.evaluate(patchcore)
-
-results = TrainerResult(**metrics)
 
 print('#'* 50)
-print("Evaluation performances:")
-print(f"""
-img_roc: {results.img_roc_auc}
-pxl_roc: {results.pxl_roc_auc}
-f1_img: {results.img_f1}
-f1_pxl: {results.pxl_f1}
-img_pr: {results.img_pr_auc}
-pxl_pr: {results.pxl_pr_auc}
-pxl_pro: {results.pxl_au_pro}
-""")
+print("Successfully loaded the model state dict")
+print(f"Memory bank shape: {patchcore.memory_bank.shape}")
 print('#'* 50)
 
-#NOTE: Produce the anomaly maps
-if args.anomaly_map:
+#NOTE: Creat and instance of EIF
 
-    visual_test_path = generate_path(
-        basepath = os.getcwd(),
-        folders = [
-            "anomaly_maps",
-            args.dataset_name,
-            args.category,
-            patchcore.name,
-            args.backbone,
-        ]
-    )
-    for images, labels, masks, paths in tqdm(iter(test_loader)):
-        anomaly_maps, pred_scores = patchcore(images.to(device))
+eif = EIF(
+    plus = True,
+    n_estimators = args.n_estimators,
+    max_samples = args.max_samples,
+    use_centroid_split = True
+)
+ipdb.set_trace()
 
-        anomaly_maps = torch.permute(anomaly_maps, (0, 2, 3, 1))
+#NOTE: Fit the EIF model on the memory bank of the PatchCore model
 
-        for i in range(anomaly_maps.shape[0]):
-            patchcore.save_anomaly_map(
-                dirpath = visual_test_path,
-                anomaly_map = anomaly_maps[i].cpu().numpy(),
-                pred_score = pred_scores[i],
-                filepath = paths[i],
-                x_type = labels[i],
-                mask = masks[i]
-            )
+print('#'* 50)
+print("Fitting the EIF model on the memory bank of the PatchCore model")
+print('#'* 50)
+
+eif.fit(patchcore.memory_bank.cpu().numpy())
+
+#TODO: After having fitted the model I have to compute the anomaly scores passing in
+# input the embeddings of the test set images, not the image directly. In order to obtain
+# the embeddings I have to use the forward method of the PatchCore model but in the `train`
+# mode (where embeddings are computed).
+
+
