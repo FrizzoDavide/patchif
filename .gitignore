@@ -203,3 +203,7 @@ benchmark/patchcore.json
 benchmark/stfpm.json
 
 /wandb
+
+#NOTE: patchif things
+patchif_notes/
+ExIFFI_Core/
