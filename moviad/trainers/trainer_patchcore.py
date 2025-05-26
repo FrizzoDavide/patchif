@@ -13,7 +13,7 @@ from moviad.trainers.trainer import Trainer, TrainerResult
 class TrainerPatchCore(Trainer):
 
     """
-    This class contains the code for training the CFA model
+    This class contains the code for training the PatchCore model
 
     Args:
         patchore_model (PatchCore): model to be trained
@@ -32,10 +32,10 @@ class TrainerPatchCore(Trainer):
         logger=None,
     ):
         super().__init__(
-            patchore_model, 
-            train_dataloader, 
-            test_dataloder, 
-            device, 
+            patchore_model,
+            train_dataloader,
+            test_dataloder,
+            device,
             logger
         )
         self.coreset_extractor = coreset_extractor
