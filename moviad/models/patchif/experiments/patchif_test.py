@@ -7,6 +7,7 @@ Python script to test the first things needed for the patchif project.
 import os
 from pathlib import Path
 import argparse
+import setproctitle
 import ipdb
 import torch
 import gc
@@ -21,39 +22,79 @@ from tqdm import tqdm
 from moviad.models.patchcore.patchcore import PatchCore
 
 #NOTE: Trainer → TrainerPatchCore
+from moviad.trainers.trainer import TrainerResult
 from moviad.trainers.trainer_patchcore import TrainerPatchCore
 
 #NOTE: Datasets → MVTec and RealIad
-from moviad.datasets.mvtec.mvtec_dataset import MVTecDataset
+from moviad.datasets.mvtec.mvtec_dataset import MVTecDataset, CATEGORIES
 from moviad.datasets.realiad.realiad_dataset import RealIadDataset, RealIadClassEnum
 
 #NOTE: Feature Extractor → CustomFeatureExtractor
-from moviad.utilities.custom_feature_extractor_trimmed import CustomFeatureExtractor
+from moviad.trainers.trainer_stfpm import TrainerSTFPM
+from moviad.utilities.custom_feature_extractor_trimmed import CustomFeatureExtractor, TORCH_BACKBONES, OTHERS_BACKBONES
+
+#NOTE:: Import utility  functions from manage_files.py
+from moviad.utilities.manage_files import generate_path, get_current_time, get_most_recent_file, open_element, save_element
 
 #NOTE: TaskType
 from moviad.utilities.configurations import TaskType, Split
+from moviad.utilities.evaluator import Evaluator
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("--backbone", type=str, help="Model backbone")
+parser.add_argument("--dataset_name",type=str,default="mvtec",help="Dataset name")
+parser.add_argument("--model_name",type=str,default="patchcore",help="Dataset name")
+parser.add_argument("--category", type=str, default="pill", help="Dataset category to test")
+parser.add_argument("--backbone", type=str, default="mobilenet_v2", help="Model backbone")
 parser.add_argument("--ad_layers", type=str, nargs="+", help="List of ad layers")
 parser.add_argument("--device_num", type=int, default=0, help="Number of the CUDA device to use")
 parser.add_argument("--dataset_path", type=str, help="Path of the directory where the dataset is stored")
-parser.add_argument("--category", type=str, help="Dataset category to test")
+parser.add_argument("--save_model", action='store_true', help="Flag to save the model")
+parser.add_argument("--train_model", action='store_true', help="Flag to train the model, otherwise load the state dict of an already saved model")
+parser.add_argument("--anomaly_map", action='store_true', help="Flag to produce the anomaly maps")
 
 args = parser.parse_args()
 
+setproctitle.setproctitle(f"exp_{args.dataset_name}_{args.category}_{args.model_name}_{args.backbone}")
+
+MODEL_NAMES = (
+    "patchcore",
+    "cfa",
+    "padim",
+    "stfpm",
+    "ganomaly",
+    "fastflow",
+    "past",
+    "rd4ad",
+    "simplenet"
+)
+
+DATASET_NAMES = (
+    "mvtec", # MVTec dataset
+    "iad", # RealIad dataset
+    "visa", # VisA dataset
+    "miic", # MIIC dataset
+)
+
+assert args.dataset_name in DATASET_NAMES, f"Dataset {args.dataset_name} not supported. Supported datasets: {DATASET_NAMES}"
+assert args.category in CATEGORIES, f"Dataset {args.dataset_name} not supported. Supported datasets: {CATEGORIES}"
+assert args.model_name in MODEL_NAMES, f"Model {args.model_name} not supported. Supported models: {MODEL_NAMES}"
+assert args.backbone in TORCH_BACKBONES or args.backbone in OTHERS_BACKBONES, f"Backbone {args.backbone} not supported. Supported backbones: {TORCH_BACKBONES + OTHERS_BACKBONES}"
+
 device = f"cuda:{args.device_num}" if torch.cuda.is_available() else "cpu"
 device = torch.device(device)
-print('#'* 50)
-print(f"Using device: {device}")
-print('#'* 50)
 
 print('#'* 50)
-print("Building feature extractor")
+print("------EXPERIMENT DETAILS------")
+print(f"Dataset: {args.dataset_name}")
+print(f"Category: {args.category}")
+print(f"Backbone: {args.backbone}")
+print(f"AD Layers: {args.ad_layers}")
+print(f"Device: {device}")
 print('#'* 50)
 
 #NOTE: Define the feature extractor (i.e. pre trained CNN) using the CustomFeatureExtractor class
+
 feature_extractor = CustomFeatureExtractor(
     model_name = args.backbone,
     layers_idx = args.ad_layers,
@@ -63,12 +104,7 @@ feature_extractor = CustomFeatureExtractor(
     calibration_dataloader=None
 )
 
-
 #NOTE: Define and load the dataset using the MVTecDataset class
-
-print('#'* 50)
-print("Loading MVTec dataset")
-print('#'* 50)
 
 train_dataset = MVTecDataset(
     task = TaskType.SEGMENTATION,
@@ -98,11 +134,11 @@ test_dataset = MVTecDataset(
 test_dataset.load_dataset()
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
 
-#TODO: Define the model using the PatchCore class
+#NOTE: Define the model using the PatchCore class
 
 patchcore = PatchCore(
     device = device,
-    input_size = (224,224),
+    input_size = (224, 224),
     feature_extractor = feature_extractor,
     num_neighbors = 9,
     apply_quantization = False,
@@ -111,9 +147,110 @@ patchcore = PatchCore(
 patchcore.to(device)
 patchcore.train()
 
-#TODO: Define the trainer using the TrainerPatchCore class
+#NOTE: Define the model directory path where the model will be saved
 
+model_dirpath = generate_path(
+    basepath = os.getcwd(),
+    folders = [
+        "models",
+        args.dataset_name,
+        args.category,
+        patchcore.name,
+        args.backbone,
+    ]
+)
 
-#TODO: Train the model using the trainer class → at this point after the model is trained
-# I guess that I should be able to access the memory bank of patch features
+#NOTE: Define the trainer using the TrainerPatchCore class
+# and use the `train` method to train the model and get the memory bank
 
+if args.train_model:
+    trainer = TrainerPatchCore(
+        patchcore_model = patchcore,
+        train_dataloader = train_loader,
+        test_dataloder = test_loader,
+        device = device,
+        coreset_extractor = None,
+        logger = None,
+    )
+
+    print('#'* 50)
+    print("Training the model")
+    print('#'* 50)
+    trainer.train()
+
+    if args.save_model:
+        filename=f"{get_current_time()}_{args.dataset_name}_{args.category}_{patchcore.name}_{args.backbone}"
+        save_element(
+            element = patchcore,
+            dirpath = model_dirpath,
+            filename = filename,
+            filetype = "pth",
+            no_time = False
+        )
+
+try:
+    model_path = get_most_recent_file(model_dirpath,file_pos=0)
+    print('#'* 50)
+    print(f"Loading the model state dict from: {model_path}")
+    print('#'* 50)
+except FileNotFoundError:
+    print("Model directory not found. Please train the model first or check the path.")
+
+#NOTE: Evaluate the model on the test set
+
+patchcore = PatchCore(
+    device = device,
+    input_size = (224, 224),
+    feature_extractor = feature_extractor,
+    num_neighbors = 9,
+    apply_quantization = False,
+    k = 1000
+)
+patchcore.load_model(model_path)
+patchcore.eval()
+
+evaluator = Evaluator(test_loader, device)
+metrics = evaluator.evaluate(patchcore)
+
+results = TrainerResult(**metrics)
+
+print('#'* 50)
+print("Evaluation performances:")
+print(f"""
+img_roc: {results.img_roc_auc}
+pxl_roc: {results.pxl_roc_auc}
+f1_img: {results.img_f1}
+f1_pxl: {results.pxl_f1}
+img_pr: {results.img_pr_auc}
+pxl_pr: {results.pxl_pr_auc}
+pxl_pro: {results.pxl_au_pro}
+""")
+print('#'* 50)
+
+#NOTE: Produce the anomaly maps
+if args.anomaly_map:
+
+    visual_test_path = generate_path(
+        basepath = os.getcwd(),
+        folders = [
+            "anomaly_maps",
+            args.dataset_name,
+            args.category,
+            patchcore.name,
+            args.backbone,
+        ]
+    )
+    for images, labels, masks, paths in tqdm(iter(test_loader)):
+        anomaly_maps, pred_scores = patchcore(images.to(device))
+
+        anomaly_maps = torch.permute(anomaly_maps, (0, 2, 3, 1))
+
+        for i in range(anomaly_maps.shape[0]):
+            patchcore.save_anomaly_map(
+                dirpath = visual_test_path,
+                anomaly_map = anomaly_maps[i].cpu().numpy(),
+                pred_score = pred_scores[i],
+                filepath = paths[i],
+                x_type = labels[i],
+                mask = masks[i]
+            )
