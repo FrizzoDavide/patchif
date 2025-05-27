@@ -102,6 +102,11 @@ class Padim(nn.Module):
         self.gauss_mean = None
         self.gauss_cov = None
 
+    @property
+    def name(self) -> str:
+        """Return the name of the model."""
+        return "padim"
+
     @staticmethod
     def embedding_concat(x, y):
         B, C1, H1, W1 = x.size()

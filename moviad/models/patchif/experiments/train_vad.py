@@ -21,9 +21,14 @@ from tqdm import tqdm
 #NOTE: AD model → PatchCore
 from moviad.models.patchcore.patchcore import PatchCore
 
+#NOTE: AD model → PaDiM
+from moviad.models.padim.padim import Padim
+
 #NOTE: Trainer → TrainerPatchCore
 from moviad.trainers.trainer import TrainerResult
 from moviad.trainers.trainer_patchcore import TrainerPatchCore
+#NOTE: Trainer → TrainerPadim
+from moviad.trainers.trainer_padim import PadimTrainer
 
 #NOTE: Datasets → MVTec and RealIad
 from moviad.datasets.mvtec.mvtec_dataset import MVTecDataset, CATEGORIES
@@ -88,6 +93,7 @@ print('#'* 50)
 print("------EXPERIMENT DETAILS------")
 print(f"Dataset: {args.dataset_name}")
 print(f"Category: {args.category}")
+print(F"Model name: {args.model_name}")
 print(f"Backbone: {args.backbone}")
 print(f"AD Layers: {args.ad_layers}")
 print(f"Device: {device}")
@@ -136,26 +142,45 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=T
 
 #NOTE: Define the model using the PatchCore class
 
-patchcore = PatchCore(
-    device = device,
-    input_size = (224, 224),
-    feature_extractor = feature_extractor,
-    num_neighbors = 9,
-    apply_quantization = False,
-    k = 10000
-)
-patchcore.to(device)
-patchcore.train()
+if args.model_name == "patchcore":
+    print('#'* 50)
+    print(f"Model chosen: {args.model_name}")
+    print('#'* 50)
+    model = PatchCore(
+        device = device,
+        input_size = (224, 224),
+        feature_extractor = feature_extractor,
+        num_neighbors = 9,
+        apply_quantization = False,
+        k = 10000
+    )
+
+elif args.model_name == "padim":
+    print('#'* 50)
+    print(f"Model chosen: {args.model_name}")
+    print('#'* 50)
+    model = Padim(
+        backbone_model_name = args.backbone,
+        class_name = args.category,
+        device = device,
+        layers_idxs = [4,7,10],
+        diag_cov = False
+    )
+else:
+    print('#'* 50)
+    print(f"Model {args.model_name} not yet implemented in this script")
+    print('#'* 50)
+    quit()
 
 #NOTE: Define the model directory path where the model will be saved
 
 model_dirpath = generate_path(
     basepath = os.getcwd(),
     folders = [
-        "models",
+        "models_state_dict",
         args.dataset_name,
         args.category,
-        patchcore.name,
+        model.name,
         args.backbone,
     ]
 )
@@ -164,29 +189,48 @@ model_dirpath = generate_path(
 # and use the `train` method to train the model and get the memory bank
 
 if args.train_model:
-    trainer = TrainerPatchCore(
-        patchcore_model = patchcore,
-        train_dataloader = train_loader,
-        test_dataloder = test_loader,
-        device = device,
-        coreset_extractor = None,
-        logger = None,
-    )
+
+    model.to(device)
+    model.train()
+
+    if args.model_name == "patchcore":
+
+        trainer = TrainerPatchCore(
+            patchcore_model = model,
+            train_dataloader = train_loader,
+            test_dataloder = test_loader,
+            device = device,
+            coreset_extractor = None,
+            logger = None,
+        )
+
+
+    elif args.model_name == "padim":
+
+        trainer = PadimTrainer(
+            model = model,
+            train_dataloader = train_loader,
+            test_dataloader = test_loader,
+            device = device,
+            apply_diagonalization = False,
+            logger = None,
+        )
 
     print('#'* 50)
-    print("Training the model")
+    print(f"Training the {args.model_name} model")
     print('#'* 50)
     trainer.train()
 
     if args.save_model:
-        filename=f"{get_current_time()}_{args.dataset_name}_{args.category}_{patchcore.name}_{args.backbone}"
-        save_element(
-            element = patchcore,
-            dirpath = model_dirpath,
-            filename = filename,
-            filetype = "pth",
-            no_time = False
-        )
+        if args.model_name == "patchcore":
+            filename=f"{get_current_time()}_{args.dataset_name}_{args.category}_{model.name}_{args.backbone}"
+            save_element(
+                element = model,
+                dirpath = model_dirpath,
+                filename = filename,
+                filetype = "pth",
+                no_time = False
+            )
 
 try:
     model_path = get_most_recent_file(model_dirpath,file_pos=0)
@@ -198,19 +242,41 @@ except FileNotFoundError:
 
 #NOTE: Evaluate the model on the test set
 
-patchcore = PatchCore(
-    device = device,
-    input_size = (224, 224),
-    feature_extractor = feature_extractor,
-    num_neighbors = 9,
-    apply_quantization = False,
-    k = 1000
-)
-patchcore.load_model(model_path)
-patchcore.eval()
+if args.model_name == "patchcore":
+    model = PatchCore(
+        device = device,
+        input_size = (224, 224),
+        feature_extractor = feature_extractor,
+        num_neighbors = 9,
+        apply_quantization = False,
+        k = 1000
+    )
+    model.load_model(model_path)
+    model.to(device)
+    model.eval()
+elif args.model_name == "padim":
+    model = Padim(
+        backbone_model_name = args.backbone,
+        class_name = args.category,
+        device = device,
+        layers_idxs = [4,7,10],
+        diag_cov = False
+    )
+
+    model.load_state_dict(
+        torch.load(model_path, weights_only=False, map_location=device), strict=False
+    )
+    model.to(device)
+    model.eval()
+else:
+    print('#'* 50)
+    print(f"Model {args.model_name} not yet implemented in this script")
+    print('#'* 50)
+    quit()
+
 
 evaluator = Evaluator(test_loader, device)
-metrics = evaluator.evaluate(patchcore)
+metrics = evaluator.evaluate(model)
 
 results = TrainerResult(**metrics)
 
@@ -236,17 +302,17 @@ if args.anomaly_map:
             "anomaly_maps",
             args.dataset_name,
             args.category,
-            patchcore.name,
+            model.name,
             args.backbone,
         ]
     )
     for images, labels, masks, paths in tqdm(iter(test_loader)):
-        anomaly_maps, pred_scores = patchcore(images.to(device))
+        anomaly_maps, pred_scores = model(images.to(device))
 
         anomaly_maps = torch.permute(anomaly_maps, (0, 2, 3, 1))
 
         for i in range(anomaly_maps.shape[0]):
-            patchcore.save_anomaly_map(
+            model.save_anomaly_map(
                 dirpath = visual_test_path,
                 anomaly_map = anomaly_maps[i].cpu().numpy(),
                 pred_score = pred_scores[i],

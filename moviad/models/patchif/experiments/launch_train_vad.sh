@@ -1,15 +1,13 @@
 #!/bin/bash
 
-# Export the conda environment path to PATH
-# export PATH="/home/davide_frizzo/anaconda3/envs/moviad/bin/:$PATH"
-
 script_path="train_vad.py"
-model_name="patchcore"
+# model_name="patchcore"
+model_name="padim"
 dataset_name="mvtec"
 backbone="mobilenet_v2"
 ad_layers=("features.4 features.7 features.10")
-# category="pill"
-category="hazelnut"
+category="pill"
+# category="hazelnut"
 dataset_path="/mnt/disk1/manuel_barusco/CL_VAD/adcl_paper/data/mvtec"
 device_num=2
 
@@ -21,7 +19,5 @@ python $script_path \
   --ad_layers ${ad_layers[@]} \
   --dataset_path $dataset_path \
   --device_num $device_num \
-  --save_model \
-  --train_model \
-  --anomaly_map
+  --save_model
 
