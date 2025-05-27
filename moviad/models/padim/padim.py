@@ -75,9 +75,10 @@ class Padim(nn.Module):
         """
         Args:
             backbone_model_name: one of the following strings: 'wide_resnet50_2', 'mobilenet_v2'
-            save_path: path to save the model and the extracted features
             class_name: one of the following strings: 'bottle', 'cable', 'capsule', 'carpet', 'grid', 'hazelnut',
                 'leather', 'metal_nut', 'pill', 'screw', 'tile', 'toothbrush', 'transistor', 'wood', 'zipper'
+            device: device where to run the model, e.g. 'cuda' or 'cpu'
+            layers_idxs: list of integers or strings representing the indexes of the layers to use for feature extraction
             diag_cov: if True, keep only the diagonal elements of the covariance matrices
         """
         super(Padim, self).__init__()
@@ -145,6 +146,10 @@ class Padim(nn.Module):
                 embedding_vectors, output_tensors[layer]
             )
         # dimensionality reduction: select the random dimensions to reduce the embedding vectors
+        #NOTE: DIMENSIONALITY REDUCTION: This `torch.index_select` function selects the indexes contained in `self.random_dimensions`
+        # along dimension 1 of `embedding_vectors` → `self.random_dimensions` contains indexes selected at random
+        # so this is essentially the same thing as a random subsampling
+        # This thing is done on the features, so it reduced the embedding dimension
         embedding_vectors = torch.index_select(
             embedding_vectors.to(self.device), 1, self.random_dimensions
         )
@@ -291,8 +296,8 @@ class Padim(nn.Module):
     def get_model_savepath(self, save_path):
         return os.path.join(
             save_path,
-            "checkpoints_%s" % self.backbone_model_name,
-            "train_%s.pth.tar" % self.class_name,
+            f"checkpoints_{self.backbone_model_name}",
+            f"train_{self.class_name}.pth.tar" % self.class_name,
         )
 
     def state_dict(self, *args, **kwargs):
