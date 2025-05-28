@@ -4,6 +4,7 @@ Python script containig the implementation of the PatchIF model
 
 from __future__ import annotations
 import os
+import ipdb
 from typing import Mapping, Union, Any, Dict, List, Tuple
 
 import cv2 as cv
@@ -198,6 +199,7 @@ class PatchIF(nn.Module):
         # get intermediate layer outputs
         for layer, output in zip(self.layers_idxs, self.outputs):  # new
             layer_outputs[layer].append(output.cpu().detach())  # new
+
         # initialize hook outputs
         self.outputs = []
 
@@ -212,7 +214,7 @@ class PatchIF(nn.Module):
         # To make them usable for self.ad_model we need to reshape them as follows:
         # embedding_vectors = embedding_vectors.view(-1,embedding_vectors.size(1))
 
-        #TODO: In order to be able to produce the anomaly map I have to iterate over
+        #NOTE: In order to be able to produce the anomaly map I have to iterate over
         # all the patches (over all the H and W dimensions) and apply the predict method
         # on each one of them → so the predict method will be applied on a (32,40) tensor
         # and will give use the anomaly score → at the end we will have a tensor of shape
@@ -230,8 +232,11 @@ class PatchIF(nn.Module):
         for i in range(embedding_vectors.size(2)):
             for j in range(embedding_vectors.size(3)):
                 patch_embedding = embedding_vectors[:, :, i, j].view(-1, embedding_vectors.size(1))
+                ipdb.set_trace()
                 anomaly_score = self.ad_model.predict(patch_embedding.cpu().numpy())
                 anomaly_scores[:, i, j] = anomaly_score
+
+        ipdb.set_trace()
 
         # 4. upsample
         score_map = (

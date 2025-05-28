@@ -3,6 +3,7 @@ Experiment configurations
 """
 
 MODEL_NAMES = (
+    "patchif",
     "patchcore",
     "cfa",
     "padim",

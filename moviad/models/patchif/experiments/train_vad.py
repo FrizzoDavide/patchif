@@ -24,6 +24,9 @@ from moviad.models.patchcore.patchcore import PatchCore
 #NOTE: AD model → PaDiM
 from moviad.models.padim.padim import Padim
 
+#NOTE: AD model → PatchIF
+from moviad.models.patchif.patchif import PatchIF
+
 #NOTE: Trainer → TrainerPatchCore
 from moviad.trainers.trainer import TrainerResult
 from moviad.trainers.trainer_patchcore import TrainerPatchCore
@@ -51,8 +54,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--dataset_name",type=str,default="mvtec",help="Dataset name")
 parser.add_argument("--model_name",type=str,default="patchcore",help="Dataset name")
 parser.add_argument("--category", type=str, default="pill", help="Dataset category to test")
+parser.add_argument("--ad_model_type", type=str, default="eif", help="Type of AD model, eif or if")
 parser.add_argument("--backbone", type=str, default="mobilenet_v2", help="Model backbone")
 parser.add_argument("--device_num", type=int, default=0, help="Number of the CUDA device to use")
+parser.add_argument("--n_estimators", type=int, default=100, help="Number of estimators for the IF/EIF model, for patchif")
 parser.add_argument("--save_model", action='store_true', help="Flag to save the model")
 parser.add_argument("--train_model", action='store_true', help="Flag to train the model, otherwise load the state dict of an already saved model")
 parser.add_argument("--anomaly_map", action='store_true', help="Flag to produce the anomaly maps")
@@ -60,23 +65,6 @@ parser.add_argument("--anomaly_map", action='store_true', help="Flag to produce 
 args = parser.parse_args()
 
 setproctitle.setproctitle(f"exp_{args.dataset_name}_{args.category}_{args.model_name}_{args.backbone}")
-
-print('#'* 50)
-print("------EXPERIMENT CONFIGURATIONS------")
-print("Dataset names:")
-print(DATASET_NAMES)
-print('#'* 50)
-print("Model names:")
-print(MODEL_NAMES)
-print('#'* 50)
-print("Dataset paths:")
-print(DATASET_PATHS)
-print('#'* 50)
-print("AD Layers:")
-print(AD_LAYERS)
-print('#'* 50)
-
-ipdb.set_trace()
 
 assert args.dataset_name in DATASET_NAMES, f"Dataset {args.dataset_name} not supported. Supported datasets: {DATASET_NAMES}"
 assert args.category in CATEGORIES, f"Dataset {args.dataset_name} not supported. Supported datasets: {CATEGORIES}"
@@ -140,9 +128,6 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=T
 #NOTE: Define the model using the PatchCore class
 
 if args.model_name == "patchcore":
-    print('#'* 50)
-    print(f"Model chosen: {args.model_name}")
-    print('#'* 50)
     model = PatchCore(
         device = device,
         input_size = (224, 224),
@@ -153,9 +138,6 @@ if args.model_name == "patchcore":
     )
 
 elif args.model_name == "padim":
-    print('#'* 50)
-    print(f"Model chosen: {args.model_name}")
-    print('#'* 50)
     model = Padim(
         backbone_model_name = args.backbone,
         class_name = args.category,
@@ -163,11 +145,30 @@ elif args.model_name == "padim":
         layers_idxs = [4,7,10],
         diag_cov = False
     )
+elif args.model_name == "patchif":
+    model = PatchIF(
+        backbone_model_name = args.backbone,
+        layers_idxs = AD_LAYERS[args.backbone],
+        ad_model_type = args.ad_model_type,
+        n_estimators = args.n_estimators,
+        device = device
+    )
 else:
     print('#'* 50)
     print(f"Model {args.model_name} not yet implemented in this script")
     print('#'* 50)
     quit()
+
+print('#'* 50)
+print(f"Model chosen: {args.model_name}")
+print('#'* 50)
+
+#NOTE: PatchIF test:
+
+x = torch.rand(1, 3, 224, 224).to(device)
+model.to(device)
+model.eval()
+score_map,img_scores = model(x)
 
 #NOTE: Define the model directory path where the model will be saved
 

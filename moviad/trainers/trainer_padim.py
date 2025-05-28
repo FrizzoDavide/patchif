@@ -9,8 +9,8 @@ from moviad.trainers.trainer import Trainer, TrainerResult
 class PadimTrainer(Trainer):
 
     def __init__(
-        self, 
-        model: Padim,  
+        self,
+        model: Padim,
         train_dataloader: torch.utils.data.DataLoader,
         test_dataloader: torch.utils.data.DataLoader,
         device,
@@ -22,10 +22,10 @@ class PadimTrainer(Trainer):
             device: one of the following strings: 'cpu', 'cuda', 'cuda:0', ...
         """
         super().__init__(
-            model, 
-            train_dataloader, 
-            test_dataloader, 
-            device, 
+            model,
+            train_dataloader,
+            test_dataloader,
+            device,
             logger
         )
         self.apply_diagonalization = apply_diagonalization
