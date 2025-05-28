@@ -44,6 +44,7 @@ from moviad.utilities.manage_files import generate_path, get_current_time, get_m
 #NOTE: TaskType
 from moviad.utilities.configurations import TaskType, Split
 from moviad.utilities.evaluator import Evaluator
+from moviad.utilities.exp_configurations import MODEL_NAMES, DATASET_NAMES, DATASET_PATHS, AD_LAYERS
 
 parser = argparse.ArgumentParser()
 
@@ -51,9 +52,7 @@ parser.add_argument("--dataset_name",type=str,default="mvtec",help="Dataset name
 parser.add_argument("--model_name",type=str,default="patchcore",help="Dataset name")
 parser.add_argument("--category", type=str, default="pill", help="Dataset category to test")
 parser.add_argument("--backbone", type=str, default="mobilenet_v2", help="Model backbone")
-parser.add_argument("--ad_layers", type=str, nargs="+", help="List of ad layers")
 parser.add_argument("--device_num", type=int, default=0, help="Number of the CUDA device to use")
-parser.add_argument("--dataset_path", type=str, help="Path of the directory where the dataset is stored")
 parser.add_argument("--save_model", action='store_true', help="Flag to save the model")
 parser.add_argument("--train_model", action='store_true', help="Flag to train the model, otherwise load the state dict of an already saved model")
 parser.add_argument("--anomaly_map", action='store_true', help="Flag to produce the anomaly maps")
@@ -62,24 +61,22 @@ args = parser.parse_args()
 
 setproctitle.setproctitle(f"exp_{args.dataset_name}_{args.category}_{args.model_name}_{args.backbone}")
 
-MODEL_NAMES = (
-    "patchcore",
-    "cfa",
-    "padim",
-    "stfpm",
-    "ganomaly",
-    "fastflow",
-    "past",
-    "rd4ad",
-    "simplenet"
-)
+print('#'* 50)
+print("------EXPERIMENT CONFIGURATIONS------")
+print("Dataset names:")
+print(DATASET_NAMES)
+print('#'* 50)
+print("Model names:")
+print(MODEL_NAMES)
+print('#'* 50)
+print("Dataset paths:")
+print(DATASET_PATHS)
+print('#'* 50)
+print("AD Layers:")
+print(AD_LAYERS)
+print('#'* 50)
 
-DATASET_NAMES = (
-    "mvtec", # MVTec dataset
-    "iad", # RealIad dataset
-    "visa", # VisA dataset
-    "miic", # MIIC dataset
-)
+ipdb.set_trace()
 
 assert args.dataset_name in DATASET_NAMES, f"Dataset {args.dataset_name} not supported. Supported datasets: {DATASET_NAMES}"
 assert args.category in CATEGORIES, f"Dataset {args.dataset_name} not supported. Supported datasets: {CATEGORIES}"
@@ -95,7 +92,7 @@ print(f"Dataset: {args.dataset_name}")
 print(f"Category: {args.category}")
 print(F"Model name: {args.model_name}")
 print(f"Backbone: {args.backbone}")
-print(f"AD Layers: {args.ad_layers}")
+print(f"AD Layers: {AD_LAYERS[args.backbone]}")
 print(f"Device: {device}")
 print('#'* 50)
 
@@ -103,7 +100,7 @@ print('#'* 50)
 
 feature_extractor = CustomFeatureExtractor(
     model_name = args.backbone,
-    layers_idx = args.ad_layers,
+    layers_idx = AD_LAYERS[args.backbone],
     device = device,
     frozen = True,
     quantized = False,
@@ -114,7 +111,7 @@ feature_extractor = CustomFeatureExtractor(
 
 train_dataset = MVTecDataset(
     task = TaskType.SEGMENTATION,
-    root = args.dataset_path,
+    root = DATASET_PATHS[args.dataset_name],
     category = args.category,
     split = Split.TRAIN,
     norm = True,
@@ -128,7 +125,7 @@ train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle
 
 test_dataset = MVTecDataset(
     task = TaskType.SEGMENTATION,
-    root = args.dataset_path,
+    root = DATASET_PATHS[args.dataset_name],
     category = args.category,
     split = Split.TEST,
     norm = True,

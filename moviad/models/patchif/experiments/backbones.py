@@ -24,7 +24,6 @@ parser.add_argument("--model_name",type=str,default="patchcore",help="Dataset na
 parser.add_argument("--backbone", type=str, default="mobilenet_v2", help="Model backbone")
 parser.add_argument("--dataset_name",type=str,default="mvtec",help="Dataset name")
 parser.add_argument("--category", type=str, default="pill", help="MVTec dataset category")
-parser.add_argument("--ad_layers", type=str, nargs="+", help="List of ad layers")
 parser.add_argument("--device_num", type=int, default=0, help="Number of the CUDA device to use")
 
 args = parser.parse_args()
@@ -34,9 +33,23 @@ setproctitle.setproctitle(f"backbones_exp_{args.model_name}_{args.backbone}")
 device = f"cuda:{args.device_num}" if torch.cuda.is_available() else "cpu"
 device = torch.device(device)
 
+#NOTE: Layers to use for each different backbone
+backbones = {
+    "mobilenet_v2": ["features.4", "features.7", "features.10"],
+    "wide_resnet50_2": ["layer1", "layer2", "layer3"],
+    "phinet_1.2_0.5_6_downsampling": [2, 6, 7],
+    "micronet-m1": [2, 4, 5],
+    "mcunet-in3": [3, 6, 9],
+    "resnet18": ["layer1", "layer2", "layer3"]
+}
+
+print('#'* 50)
+print(f"Backbone layers from which to extract the features: {backbones[args.backbone]}")
+print('#'* 50)
+
 feature_extractor = CustomFeatureExtractor(
     model_name = args.backbone,
-    layers_idx = args.ad_layers,
+    layers_idx = backbones[args.backbone],
     device = device,
     frozen = True,
     quantized = False,
@@ -56,7 +69,7 @@ model.to(device)
 model_dirpath = generate_path(
     basepath = os.getcwd(),
     folders = [
-        "models",
+        "models_state_dict",
         args.dataset_name,
         args.category,
         model.name,
@@ -69,10 +82,9 @@ try:
     print('#'* 50)
     print(f"Loading the model state dict from: {model_path}")
     print('#'* 50)
+    model.load_model(model_path)
 except FileNotFoundError:
-    print(f"No model found in {model_dirpath}. Are you sure you trained the model?")
-
-model.load_model(model_path)
+    print(f"No model found in {model_dirpath}. Using the default model state dict.")
 
 sizes,total_size = model.get_model_size_and_macs()
 
