@@ -2,13 +2,18 @@
 
 script_path="train_vad.py"
 
+# model parameters
 model_name="patchif"
+backbone="mobilenet_v2"
 ad_model_type="eif"
 n_estimators=100
+
+# dataset parameters
 dataset_name="mvtec"
-backbone="mobilenet_v2"
 category="pill"
 # category="hazelnut"
+
+# device parameters
 device_num=2
 
 python $script_path \
@@ -19,5 +24,6 @@ python $script_path \
   --category $category \
   --backbone $backbone \
   --device_num $device_num \
-  --save_model
+  --save_model \
+  --train_model
 

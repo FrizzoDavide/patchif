@@ -80,7 +80,10 @@ def save_element(
             raise ValueError("Element must be a pandas DataFrame to save as gzipped CSV")
     elif filetype == "pth":
         # Save the model state_dict
-        torch.save(element.state_dict(), path + f".{filetype}")
+        if not isinstance(element, nn.Module):
+            torch.save(element,path + f".{filetype}")
+        else:
+            torch.save(element.state_dict(), path + f".{filetype}")
 
 
 def get_most_recent_file(dirpath: str, file_pos: int = 0) -> str:

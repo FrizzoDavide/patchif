@@ -167,13 +167,6 @@ print('#'* 50)
 print(f"Model chosen: {args.model_name}")
 print('#'* 50)
 
-#NOTE: PatchIF test:
-
-x = torch.rand(1, 3, 224, 224).to(device)
-model.to(device)
-model.eval()
-score_map,img_scores = model(x)
-
 #NOTE: Define the model directory path where the model will be saved
 
 model_dirpath = generate_path(
@@ -233,16 +226,15 @@ if args.train_model:
     print('#'* 50)
     trainer.train()
 
-    if args.save_model:
-        if args.model_name == "patchcore":
-            filename=f"{get_current_time()}_{args.dataset_name}_{args.category}_{model.name}_{args.backbone}"
-            save_element(
-                element = model,
-                dirpath = model_dirpath,
-                filename = filename,
-                filetype = "pth",
-                no_time = False
-            )
+if args.save_model:
+    filename=f"{get_current_time()}_{args.dataset_name}_{args.category}_{model.name}_{args.backbone}"
+    save_element(
+        element = model if args.model_name == "patchcore" else model.state_dict(),
+        dirpath = model_dirpath,
+        filename = filename,
+        filetype = "pth",
+        no_time = False
+    )
 
 try:
     model_path = get_most_recent_file(model_dirpath,file_pos=0)
@@ -264,8 +256,6 @@ if args.model_name == "patchcore":
         k = 1000
     )
     model.load_model(model_path)
-    model.to(device)
-    model.eval()
 elif args.model_name == "padim":
     model = Padim(
         backbone_model_name = args.backbone,
@@ -276,16 +266,33 @@ elif args.model_name == "padim":
     )
 
     model.load_state_dict(
-        torch.load(model_path, weights_only=False, map_location=device), strict=False
+        torch.load(model_path, map_location=device), strict=False
     )
-    model.to(device)
-    model.eval()
+elif args.model_name == "patchif":
+    model = PatchIF(
+        backbone_model_name = args.backbone,
+        layers_idxs = AD_LAYERS[args.backbone],
+        ad_model_type = args.ad_model_type,
+        n_estimators = args.n_estimators,
+        device = device
+    )
+
+    model.load_state_dict(
+        torch.load(model_path, map_location=device), strict=False
+    )
 else:
     print('#'* 50)
     print(f"Model {args.model_name} not yet implemented in this script")
     print('#'* 50)
     quit()
 
+
+model.to(device)
+model.eval()
+
+print('#'* 50)
+print(f"Evaluating the {args.model_name} on the test set")
+print('#'* 50)
 
 evaluator = Evaluator(test_loader, device)
 metrics = evaluator.evaluate(model)
@@ -318,6 +325,7 @@ if args.anomaly_map:
             args.backbone,
         ]
     )
+
     for images, labels, masks, paths in tqdm(iter(test_loader)):
         anomaly_maps, pred_scores = model(images.to(device))
 

@@ -30,6 +30,20 @@ class PatchIF(nn.Module):
     PatchIF Module
     """
 
+    HYPERPARAMS = [
+        "backbone_model_name",
+        "layers_idxs",
+        "ad_model_type",
+        "plus",
+        "eta",
+        "n_estimators",
+        "max_samples",
+        "max_depth",
+        "t_d",
+        "d",
+        # "trees"
+    ]
+
     def __init__(
         self,
         backbone_model_name: str = "mobilenet_v2",
@@ -62,6 +76,11 @@ class PatchIF(nn.Module):
 
         # Load the anomaly detection model
         self.load_ad_model()
+
+        #NOTE: set the trees attribute to None →
+        # it will contain the list of `ExtendedTree` objects composing the forest
+        # after training
+        self.trees = None
 
     @property
     def name(self):
@@ -232,11 +251,8 @@ class PatchIF(nn.Module):
         for i in range(embedding_vectors.size(2)):
             for j in range(embedding_vectors.size(3)):
                 patch_embedding = embedding_vectors[:, :, i, j].view(-1, embedding_vectors.size(1))
-                ipdb.set_trace()
-                anomaly_score = self.ad_model.predict(patch_embedding.cpu().numpy())
+                anomaly_score = self.ad_model.predict(patch_embedding.double().cpu().numpy())
                 anomaly_scores[:, i, j] = anomaly_score
-
-        ipdb.set_trace()
 
         # 4. upsample
         score_map = (
@@ -262,11 +278,20 @@ class PatchIF(nn.Module):
 
         return score_map, img_scores
 
-    def get_anomaly_score(self):
+    def state_dict(self, *args, **kwargs):
+        state_dict = super().state_dict(*args, **kwargs)
+        # add all the hyperparameters to the state dict
+        for p in self.HYPERPARAMS:
+            state_dict[p] = getattr(self, p)
+        return state_dict
 
-        """
-        Overwrite the get_anomaly_score method to compute the anomaly score using the
-        predict (or _predict) methods of self.ad_model (EIF or IF) on the patch embeddings
-        """
+    def load_state_dict(self, state_dict: Mapping[str, Any], strict: bool = True):
 
-        pass
+        # load the hyperparameters
+        for p in self.HYPERPARAMS:
+            setattr(self, p, state_dict[p])
+        # load the backbone models
+        self.load_backbone()
+        # remove the hyperparameters from the state dict
+        state_dict = {k: v for k, v in state_dict.items() if k not in self.HYPERPARAMS}
+        return super().load_state_dict(state_dict, strict=strict)

@@ -3,6 +3,7 @@ Trainer PatchIF
 """
 
 import os
+import ipdb
 from tqdm import tqdm
 import torch
 
@@ -32,7 +33,10 @@ class TrainerPatchIF(Trainer):
         )
 
     def train(self):
+
+        print('#'* 50)
         print(f"Train PatchIF. Backbone: {self.model.backbone_model_name}")
+        print('#'* 50)
 
         self.model.train()
 
@@ -44,7 +48,7 @@ class TrainerPatchIF(Trainer):
             layer: [] for layer in self.model.layers_idxs
         }
         for x in tqdm(
-            self.train_dataloader, "| feature extraction | train | %s |" 
+            self.train_dataloader, "| feature extraction | train | %s |"
         ):
             outputs = self.model(x.to(self.device))
             assert isinstance(outputs, dict)
@@ -57,8 +61,13 @@ class TrainerPatchIF(Trainer):
         # 3. Fit the self.ad_model on the memory bank
 
         # Reshape the embedding vectors to make them 2 dimensional?
-        # embedding_vectors = torch.view(-1, embedding_vectors.size(1))
-        self.model.ad_model.fit(embedding_vectors.cpu.numpy())
+        # embedding_vectors = embedding_vectors.view(-1, embedding_vectors.size(1))
+        print('#'* 50)
+        print(f"Fitting {self.model.ad_model.name} model on the memory bank")
+        print('#'* 50)
+        self.model.ad_model.fit(embedding_vectors.cpu().numpy())
+        # Set the trees attribute of PatchIF to the trees attribute of the ad_model
+        self.model.trees = self.model.ad_model.trees
 
         # 4. Evaluate the model on the training set
 
