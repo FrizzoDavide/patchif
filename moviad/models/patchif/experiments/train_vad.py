@@ -30,8 +30,12 @@ from moviad.models.patchif.patchif import PatchIF
 #NOTE: Trainer → TrainerPatchCore
 from moviad.trainers.trainer import TrainerResult
 from moviad.trainers.trainer_patchcore import TrainerPatchCore
+
 #NOTE: Trainer → TrainerPadim
 from moviad.trainers.trainer_padim import PadimTrainer
+
+#NOTE: Trainer → TrainerPatchIF
+from moviad.trainers.trainer_patchif import TrainerPatchIF
 
 #NOTE: Datasets → MVTec and RealIad
 from moviad.datasets.mvtec.mvtec_dataset import MVTecDataset, CATEGORIES
@@ -211,6 +215,16 @@ if args.train_model:
             test_dataloader = test_loader,
             device = device,
             apply_diagonalization = False,
+            logger = None,
+        )
+
+    elif args.model_name == "patchif":
+
+        trainer = TrainerPatchIF(
+            model = model,
+            train_dataloader = train_loader,
+            test_dataloader = test_loader,
+            device = device,
             logger = None,
         )
 
