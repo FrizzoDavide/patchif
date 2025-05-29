@@ -61,9 +61,10 @@ class TrainerPatchIF(Trainer):
         # 3. Fit the self.ad_model on the memory bank
 
         # Reshape the embedding vectors to make them 2 dimensional?
-        # embedding_vectors = embedding_vectors.view(-1, embedding_vectors.size(1))
+        embedding_vectors = embedding_vectors.view(-1, embedding_vectors.size(1))
         print('#'* 50)
         print(f"Fitting {self.model.ad_model.name} model on the memory bank")
+        print(f"Memory bank shape: {embedding_vectors.shape}")
         print('#'* 50)
         self.model.ad_model.fit(embedding_vectors.cpu().numpy())
         # Set the trees attribute of PatchIF to the trees attribute of the ad_model

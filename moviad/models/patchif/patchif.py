@@ -25,6 +25,8 @@ from ...utilities.get_sizes import *
 
 from moviad.models.padim.padim import EMBEDDING_SIZES
 
+from moviad.models.patchcore.anomaly_map import AnomalyMapGenerator
+
 class PatchIF(nn.Module):
     """
     PatchIF Module
@@ -48,6 +50,7 @@ class PatchIF(nn.Module):
         self,
         backbone_model_name: str = "mobilenet_v2",
         layers_idxs: list = ["fetures.4", "features.7", "features.10"],
+        input_size: tuple[int] = (224,224),
         ad_model_type: str = "eif",
         plus: bool = True,
         eta: float = 1.5,
@@ -60,6 +63,7 @@ class PatchIF(nn.Module):
 
         self.backbone_model_name = backbone_model_name
         self.layers_idxs = layers_idxs
+        self.input_size = input_size
         self.ad_model_type = ad_model_type
         self.plus = plus
         self.eta = eta
@@ -67,6 +71,7 @@ class PatchIF(nn.Module):
         self.max_samples = max_samples
         self.max_depth = max_depth
         self.device = device
+        self.anomaly_map_generator = AnomalyMapGenerator()
 
         # Load the feature extractor
         self.load_backbone()
@@ -87,7 +92,7 @@ class PatchIF(nn.Module):
         """
         Returns the name of the model.
         """
-        return "PatchIF"
+        return f"PatchIF_{self.ad_model.name}"
 
     def load_ad_model(self):
 
@@ -276,6 +281,8 @@ class PatchIF(nn.Module):
         # unsqueeze the score_map to have shape (B, 1, H, W)
         score_map = np.expand_dims(score_map, axis=1)
 
+        # anomaly_map = self.anomaly_map_generator(torch.tensor(score_map), image_size = self.input_size)
+
         return score_map, img_scores
 
     def state_dict(self, *args, **kwargs):
@@ -295,3 +302,77 @@ class PatchIF(nn.Module):
         # remove the hyperparameters from the state dict
         state_dict = {k: v for k, v in state_dict.items() if k not in self.HYPERPARAMS}
         return super().load_state_dict(state_dict, strict=strict)
+
+    def save_anomaly_map(
+        self,
+        dirpath: str,
+        anomaly_map: np.ndarray,
+        pred_score: float,
+        filepath: str,
+        label: str,
+        anomaly_label: str,
+        mask: np.ndarray,
+    ):
+        """
+        Produce the anomaly maps and save them
+
+        Args:
+            dirpath     (str)       : Output directory path.
+            anomaly_map (np.ndarray): Anomaly map with the same size as the input image.
+            pred_score  (float)     : Anomaly score for the input image.
+            filepath    (str)       : Path of the input image.
+            label      (str)       : Label of the input image.
+            anomaly_label      (str)       : Anomaly type (e.g. "good", "crack", etc).
+            mask        (np.ndarray): Mask of the input image.
+        """
+
+        def min_max_norm(image):
+            a_min, a_max = image.min(), image.max()
+            return (image - a_min) / (a_max - a_min)
+
+        def cvt2heatmap(gray):
+            return cv.applyColorMap(np.uint8(gray), cv.COLORMAP_JET)
+
+        # Get the image file name.
+        filename = os.path.basename(filepath)
+
+        # Load the image file and resize.
+        original_image = cv.imread(filepath)
+        original_image = cv.resize(original_image, anomaly_map.shape[:2])
+
+        # Normalize anomaly map for easier visualization.
+        anomaly_map_norm = cvt2heatmap(255 * min_max_norm(anomaly_map))
+
+        # Overlay the anomaly map to the origimal image.
+        output_image = (anomaly_map_norm / 2 + original_image / 2).astype(np.uint8)
+
+        # Create a figure and axes
+        fig, axes = plt.subplots(1, 3, figsize=(10, 5))
+
+        #convert the images to RGB
+        original_image = cv.cvtColor(original_image, cv.COLOR_BGR2RGB)
+        output_image = cv.cvtColor(output_image, cv.COLOR_BGR2RGB)
+
+        # Display the input image
+        axes[0].imshow(original_image)
+        axes[0].set_title(f'Original Image {anomaly_label}')
+        axes[0].axis('off')
+
+        # Display the mask image
+        axes[1].imshow(mask.squeeze(), cmap ='gray')
+        axes[1].set_title(f'Mask')
+        axes[1].axis('off')
+
+        # Display the final image
+        axes[2].imshow(output_image)
+        axes[2].set_title(f'Heatmap {pred_score}')
+        axes[2].axis('off')
+
+        # Save the plot
+        if label == 0:
+            anomaly_map_filename = f"normal_{filename}"
+        else:
+            anomaly_map_filename = f"anomaly_{anomaly_label}_{filename}"
+
+        plt.savefig(os.path.join(dirpath,anomaly_map_filename))
+        plt.close(fig)

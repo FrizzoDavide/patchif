@@ -5,14 +5,17 @@ Python script to test the first things needed for the patchif project.
 
 # general imports
 import os
+import time
 from pathlib import Path
 import argparse
 import setproctitle
 import ipdb
+from sympy.matrices.expressions.matmul import only_squares
 import torch
 import gc
 from torchvision.transforms import transforms
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 # moviad imports
 #NOTE: AD model → CFA model
@@ -62,7 +65,9 @@ parser.add_argument("--ad_model_type", type=str, default="eif", help="Type of AD
 parser.add_argument("--backbone", type=str, default="mobilenet_v2", help="Model backbone")
 parser.add_argument("--device_num", type=int, default=0, help="Number of the CUDA device to use")
 parser.add_argument("--n_estimators", type=int, default=100, help="Number of estimators for the IF/EIF model, for patchif")
+parser.add_argument("--plus", action='store_true', help="Flag to use the EIF or EIF+ AD model")
 parser.add_argument("--save_model", action='store_true', help="Flag to save the model")
+parser.add_argument("--use_saved_model", action='store_true', help="Flag to load the state dict of a saved model")
 parser.add_argument("--train_model", action='store_true', help="Flag to train the model, otherwise load the state dict of an already saved model")
 parser.add_argument("--anomaly_map", action='store_true', help="Flag to produce the anomaly maps")
 
@@ -78,26 +83,24 @@ assert args.backbone in TORCH_BACKBONES or args.backbone in OTHERS_BACKBONES, f"
 device = f"cuda:{args.device_num}" if torch.cuda.is_available() else "cpu"
 device = torch.device(device)
 
+exp_time = time.time()
+
 print('#'* 50)
 print("------EXPERIMENT DETAILS------")
 print(f"Dataset: {args.dataset_name}")
 print(f"Category: {args.category}")
 print(F"Model name: {args.model_name}")
+if args.model_name == "patchif":
+    print(f"AD Model type: {args.ad_model_type}")
+    print(f"Number of estimators: {args.n_estimators}")
 print(f"Backbone: {args.backbone}")
 print(f"AD Layers: {AD_LAYERS[args.backbone]}")
 print(f"Device: {device}")
 print('#'* 50)
 
-#NOTE: Define the feature extractor (i.e. pre trained CNN) using the CustomFeatureExtractor class
-
-feature_extractor = CustomFeatureExtractor(
-    model_name = args.backbone,
-    layers_idx = AD_LAYERS[args.backbone],
-    device = device,
-    frozen = True,
-    quantized = False,
-    calibration_dataloader=None
-)
+print('#'* 50)
+print(f"Defining training and test dataloaders from {args.dataset_name} dataset")
+print('#'* 50)
 
 #NOTE: Define and load the dataset using the MVTecDataset class
 
@@ -115,6 +118,10 @@ train_dataset = MVTecDataset(
 train_dataset.load_dataset()
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=32, shuffle=True)
 
+print('#'* 50)
+print(f"Train dataset contamination ratio: {train_dataset.compute_contamination_ratio()}")
+print('#'* 50)
+
 test_dataset = MVTecDataset(
     task = TaskType.SEGMENTATION,
     root = DATASET_PATHS[args.dataset_name],
@@ -129,9 +136,24 @@ test_dataset = MVTecDataset(
 test_dataset.load_dataset()
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=32, shuffle=True)
 
+print('#'* 50)
+print(f"Test dataset contamination ratio: {test_dataset.compute_contamination_ratio()}")
+print('#'* 50)
+
 #NOTE: Define the model using the PatchCore class
 
 if args.model_name == "patchcore":
+
+    #NOTE: Define the feature extractor (i.e. pre trained CNN) using the CustomFeatureExtractor class
+
+    feature_extractor = CustomFeatureExtractor(
+        model_name = args.backbone,
+        layers_idx = AD_LAYERS[args.backbone],
+        device = device,
+        frozen = True,
+        quantized = False,
+        calibration_dataloader=None
+    )
     model = PatchCore(
         device = device,
         input_size = (224, 224),
@@ -155,6 +177,7 @@ elif args.model_name == "patchif":
         layers_idxs = AD_LAYERS[args.backbone],
         ad_model_type = args.ad_model_type,
         n_estimators = args.n_estimators,
+        plus = args.plus,
         device = device
     )
 else:
@@ -165,20 +188,9 @@ else:
 
 print('#'* 50)
 print(f"Model chosen: {args.model_name}")
+if args.model_name == "patchif":
+    print(f"PatchIF model name: {model.name}")
 print('#'* 50)
-
-#NOTE: Define the model directory path where the model will be saved
-
-model_dirpath = generate_path(
-    basepath = os.getcwd(),
-    folders = [
-        "models_state_dict",
-        args.dataset_name,
-        args.category,
-        model.name,
-        args.backbone,
-    ]
-)
 
 #NOTE: Define the trainer using the TrainerPatchCore class
 # and use the `train` method to train the model and get the memory bank
@@ -198,7 +210,6 @@ if args.train_model:
             coreset_extractor = None,
             logger = None,
         )
-
 
     elif args.model_name == "padim":
 
@@ -227,6 +238,20 @@ if args.train_model:
     trainer.train()
 
 if args.save_model:
+
+    #NOTE: Define the model directory path where the model will be saved
+
+    model_dirpath = generate_path(
+        basepath = os.getcwd(),
+        folders = [
+            "models_state_dict",
+            args.dataset_name,
+            args.category,
+            model.name,
+            args.backbone,
+        ]
+    )
+
     filename=f"{get_current_time()}_{args.dataset_name}_{args.category}_{model.name}_{args.backbone}"
     save_element(
         element = model if args.model_name == "patchcore" else model.state_dict(),
@@ -236,56 +261,58 @@ if args.save_model:
         no_time = False
     )
 
-try:
-    model_path = get_most_recent_file(model_dirpath,file_pos=0)
-    print('#'* 50)
-    print(f"Loading the model state dict from: {model_path}")
-    print('#'* 50)
-except FileNotFoundError:
-    print("Model directory not found. Please train the model first or check the path.")
+if args.use_saved_model:
+
+    try:
+        model_path = get_most_recent_file(model_dirpath,file_pos=0)
+        print('#'* 50)
+        print(f"Loading the model state dict from: {model_path}")
+        print('#'* 50)
+    except FileNotFoundError:
+        print("Model directory not found. Please train the model first or check the path.")
+
+    if args.model_name == "patchcore":
+        model = PatchCore(
+            device = device,
+            input_size = (224, 224),
+            feature_extractor = feature_extractor,
+            num_neighbors = 9,
+            apply_quantization = False,
+            k = 1000
+        )
+        model.load_model(model_path)
+    elif args.model_name == "padim":
+        model = Padim(
+            backbone_model_name = args.backbone,
+            class_name = args.category,
+            device = device,
+            layers_idxs = [4,7,10],
+            diag_cov = False
+        )
+
+        model.load_state_dict(
+            torch.load(model_path, map_location=device), strict=False
+        )
+    elif args.model_name == "patchif":
+        model = PatchIF(
+            backbone_model_name = args.backbone,
+            layers_idxs = AD_LAYERS[args.backbone],
+            ad_model_type = args.ad_model_type,
+            n_estimators = args.n_estimators,
+            plus = args.plus,
+            device = device
+        )
+
+        model.load_state_dict(
+            torch.load(model_path, map_location=device), strict=False
+        )
+    else:
+        print('#'* 50)
+        print(f"Model {args.model_name} not yet implemented in this script")
+        print('#'* 50)
+        quit()
 
 #NOTE: Evaluate the model on the test set
-
-if args.model_name == "patchcore":
-    model = PatchCore(
-        device = device,
-        input_size = (224, 224),
-        feature_extractor = feature_extractor,
-        num_neighbors = 9,
-        apply_quantization = False,
-        k = 1000
-    )
-    model.load_model(model_path)
-elif args.model_name == "padim":
-    model = Padim(
-        backbone_model_name = args.backbone,
-        class_name = args.category,
-        device = device,
-        layers_idxs = [4,7,10],
-        diag_cov = False
-    )
-
-    model.load_state_dict(
-        torch.load(model_path, map_location=device), strict=False
-    )
-elif args.model_name == "patchif":
-    model = PatchIF(
-        backbone_model_name = args.backbone,
-        layers_idxs = AD_LAYERS[args.backbone],
-        ad_model_type = args.ad_model_type,
-        n_estimators = args.n_estimators,
-        device = device
-    )
-
-    model.load_state_dict(
-        torch.load(model_path, map_location=device), strict=False
-    )
-else:
-    print('#'* 50)
-    print(f"Model {args.model_name} not yet implemented in this script")
-    print('#'* 50)
-    quit()
-
 
 model.to(device)
 model.eval()
@@ -323,20 +350,60 @@ if args.anomaly_map:
             args.category,
             model.name,
             args.backbone,
+            f"{get_current_time()}_anomaly_maps"
         ]
     )
 
-    for images, labels, masks, paths in tqdm(iter(test_loader)):
-        anomaly_maps, pred_scores = model(images.to(device))
+    #NOTE: This thing is a bit of a mess because I modified save_anomaly_map
+    # just on PatchIF, but in a future refactoring with the IadModel class it will be much better
 
-        anomaly_maps = torch.permute(anomaly_maps, (0, 2, 3, 1))
+    if args.model_name == "patchif":
+        for images, labels, anomaly_labels, masks, paths in tqdm(iter(test_loader)):
+            anomaly_maps, pred_scores = model(images.to(device))
 
-        for i in range(anomaly_maps.shape[0]):
-            model.save_anomaly_map(
-                dirpath = visual_test_path,
-                anomaly_map = anomaly_maps[i].cpu().numpy(),
-                pred_score = pred_scores[i],
-                filepath = paths[i],
-                x_type = labels[i],
-                mask = masks[i]
-            )
+            anomaly_maps = torch.permute(torch.tensor(anomaly_maps), (0, 2, 3, 1))
+
+            for i in range(anomaly_maps.shape[0]):
+
+                print('#'* 50)
+                print(f"Creating anomaly map for image with path: {paths[i]}")
+                print(f"Label: {labels[i]}")
+                print(f"Anomaly label: {anomaly_labels[i]}")
+                print(f"Predicted score: {pred_scores[i]}")
+                print('#'* 50)
+
+                model.save_anomaly_map(
+                    dirpath = visual_test_path,
+                    anomaly_map = anomaly_maps[i].cpu().numpy(),
+                    pred_score = pred_scores[i],
+                    filepath = paths[i],
+                    label = labels[i],
+                    anomaly_label = anomaly_labels[i],
+                    mask = masks[i]
+                )
+    else:
+        for images, labels, masks, paths in tqdm(iter(test_loader)):
+            anomaly_maps, pred_scores = model(images.to(device))
+
+            anomaly_maps = torch.permute(torch.tensor(anomaly_maps), (0, 2, 3, 1))
+
+            for i in range(anomaly_maps.shape[0]):
+
+                print('#'* 50)
+                print(f"Creating anomaly map for image with path: {paths[i]}")
+                print(f"Label: {labels[i]}")
+                print(f"Predicted score: {pred_scores[i]}")
+                print('#'* 50)
+
+                model.save_anomaly_map(
+                    dirpath = visual_test_path,
+                    anomaly_map = anomaly_maps[i].cpu().numpy(),
+                    pred_score = pred_scores[i],
+                    filepath = paths[i],
+                    x_type = labels[i],
+                    mask = masks[i]
+                )
+
+print('#'* 50)
+print(f"Experiment completed in {time.time() - exp_time:.4f} seconds")
+print('#'* 50)
