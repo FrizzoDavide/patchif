@@ -46,7 +46,12 @@ class AnomalyMapGenerator(nn.Module):
         if image_size is None:
             anomaly_map = patch_scores
         else:
-            anomaly_map = F.interpolate(patch_scores, size=(image_size[0], image_size[1]), mode="bilinear", align_corners=False)
+            anomaly_map = F.interpolate(
+                patch_scores,
+                size=(image_size[0], image_size[1]),
+                mode="bilinear",
+                align_corners=False
+            )
         anomaly_map = self.blur(anomaly_map)
         return AnomalyMapGenerator.rescale(anomaly_map)
 

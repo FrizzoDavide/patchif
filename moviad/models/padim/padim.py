@@ -300,6 +300,7 @@ class Padim(nn.Module):
             f"train_{self.class_name}.pth.tar" % self.class_name,
         )
 
+    #TODO: Function to insert in superclass IadModel
     def state_dict(self, *args, **kwargs):
         state_dict = super().state_dict(*args, **kwargs)
         # add all the hyperparameters to the state dict
@@ -307,6 +308,7 @@ class Padim(nn.Module):
             state_dict[p] = getattr(self, p)
         return state_dict
 
+    #TODO: Function to insert in superclass IadModel
     def load_state_dict(self, state_dict: Mapping[str, Any], strict: bool = True):
         # load the hyperparameters
         for p in self.HYPERPARAMS:

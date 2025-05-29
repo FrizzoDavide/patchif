@@ -35,7 +35,7 @@ class PatchCore(nn.Module):
         """
         Constructor of the patch-core model
 
-        Args: 
+        Args:
             device (torch.device): device to be used during the training
             input_size (tuple[int]): size of the input images
             feature_extractor (CustomFeatureExtractor): feature extractor to be used 
@@ -340,6 +340,8 @@ class PatchCore(nn.Module):
         # 6. Apply the weight factor to the score
         return weights * score  # s in the paper
 
+    #TODO: Function to save the state dict of the model. This function is common to
+    # all AD models, so can be moved to a superclass IadModel?
     def save_model(self, output_path):
         """
         Save the Patchcore model
@@ -355,15 +357,29 @@ class PatchCore(nn.Module):
             self.product_quantizer.save(output_path + "/product_quantizer.bin")
         torch.save(model_state_dict, output_path + "/patchcore_model.pt")
 
-    def save_anomaly_map(self, dirpath, anomaly_map, pred_score, filepath, x_type, mask):
+    #TODO: Function to save and plot the anomaly map → shouldn't this be common to
+    # all anomaly detection models? Maybe we can insert it inside a superclass IadModel?
+    def save_anomaly_map(
+        self,
+        dirpath: str,
+        anomaly_map: np.ndarray,
+        pred_score: float,
+        filepath: str,
+        x_type: str,
+        mask: np.ndarray,
+    ):
         """
+        Produce the anomaly maps and save them
+
         Args:
             dirpath     (str)       : Output directory path.
             anomaly_map (np.ndarray): Anomaly map with the same size as the input image.
+            pred_score  (float)     : Anomaly score for the input image.
             filepath    (str)       : Path of the input image.
             x_type      (str)       : Anomaly type (e.g. "good", "crack", etc).
-            contour     (float)     : Threshold of contour, or None.
+            mask        (np.ndarray): Mask of the input image.
         """
+
         def min_max_norm(image):
             a_min, a_max = image.min(), image.max()
             return (image - a_min) / (a_max - a_min)
