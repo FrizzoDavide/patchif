@@ -207,3 +207,5 @@ benchmark/stfpm.json
 #NOTE: patchif things
 patchif_notes/
 ExIFFI_Core/
+*.png
+*.pth
