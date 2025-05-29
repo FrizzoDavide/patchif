@@ -264,9 +264,18 @@ def append_results(
             "eval_datetime": [pd.Timestamp.now()],
             "bootstrap_layer": [bootstrap_layer],
             "epochs": [epochs],
+            "input_img_size": [input_img_size],
+            "output_img_size": [output_img_size],
         }
     )
+
+    print('#'* 50)
+    print(f"Metrics results for category {category}")
+    print(df.to_markdown())
+    print('#'* 50)
+
     if os.path.isfile(output_path):
         old_df = pd.read_csv(output_path)
         df = pd.concat([old_df, df], ignore_index=True)
+
     df.to_csv(output_path, index=False)
