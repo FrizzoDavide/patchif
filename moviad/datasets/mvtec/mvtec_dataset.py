@@ -141,6 +141,11 @@ class MVTecDataset(IadDataset):
         )
 
     def compute_contamination_ratio(self) -> float:
+
+        """
+        Compute the contamination ratio of the dataset.
+        """
+
         if self.samples is None:
             raise ValueError("Dataset is not loaded")
 
@@ -149,13 +154,15 @@ class MVTecDataset(IadDataset):
             return 0
 
         total_contamination_ratio = 0
-        for index, row in contaminated_samples.iterrows():
+
+        for _, row in contaminated_samples.iterrows():
             if not Path(row["mask_path"]).exists():
                 raise ValueError("Mask file does not exist")
 
             mask = Image.open(row["mask_path"]).convert("L")
             mask = self.transform_mask(mask)
             total_contamination_ratio += compute_mask_contamination(mask)
+
         return total_contamination_ratio / len(contaminated_samples)
 
     def is_loaded(self) -> bool:
@@ -171,6 +178,15 @@ class MVTecDataset(IadDataset):
 
         root = Path(self.root_category)
 
+        #NOTE: This creates a list of tuples where each tuple is composed by:
+        # (root, split, label, image_path) where:
+        # - root is the root directory of the dataset
+        # - split is the split of the dataset (e.g. train, test, ground_truth)
+        # - label is the label of the image:
+            # - in `train` we have only `good` 
+            # - in  `test` there are several labels: ['color', 'combined', 'contamination', 'crack', 'faulty_imprint', 'good', 'pill_type', 'scratch']
+            # - in `ground_truth` we have the same labels as in `test` except for `good` (where the ground truth is not needed, it will be a all zero mask)
+            # - image_path is the path to the image file → at this stage it is just the `file_name.png`
         samples_list = [
             (str(root),) + f.parts[-3:]
             for f in root.glob(r"**/*")
@@ -181,6 +197,7 @@ class MVTecDataset(IadDataset):
             msg = f"Found 0 images in {root}"
             raise RuntimeError(msg)
 
+        # Create a DataFrame from the list of tuples
         samples = pd.DataFrame(
             samples_list, columns=["path", "split", "label", "image_path"]
         )
@@ -197,6 +214,8 @@ class MVTecDataset(IadDataset):
         )
 
         # Create label index for normal (0) and anomalous (1) images.
+        #NOTE: From what it's written here I understand that images with label `good`
+        # are the normal images, while the others are the different typeof anomalous images
         samples.loc[(samples.label == "good"), "label_index"] = LabelName.NORMAL
         samples.loc[(samples.label != "good"), "label_index"] = LabelName.ABNORMAL
         samples.label_index = samples.label_index.astype(int)
@@ -243,13 +262,29 @@ class MVTecDataset(IadDataset):
     def __len__(self) -> int:
         return len(self.samples)
 
-    def contaminate(self, source: 'IadDataset', ratio: float, seed: int = 42) -> int:
+    def contaminate(
+        self,
+        source: 'IadDataset',
+        ratio: float,
+        seed: int = 42
+    ) -> int:
+
+        """
+        Create a contaminated version of the dataset by adding anomalies so that the contamination ratio is equal to the specified ratio.
+
+        Args:
+            source (IadDataset): Source dataset from which anomalies are taken.
+            ratio (float): Contamination ratio to be achieved in the destination dataset.
+            seed (int): Random seed for reproducibility. Defaults to 42.
+
+        Returns:
+            contamination_set_size (int): Number of anomalous samples added to the input dataset
+        """
+
         if type(source) != MVTecDataset:
             raise ValueError("Dataset should be of type MVTecDataset")
         if self.samples is None:
             raise ValueError("Destination dataset is not loaded")
-        if source.samples is None:
-            raise ValueError("Source dataset is not loaded")
 
         torch.manual_seed(seed)
         contamination_set_size = int(math.floor(len(self.samples) * ratio))
@@ -261,6 +296,8 @@ class MVTecDataset(IadDataset):
                 f"while {contamination_set_size} are required."
             )
 
+        #TODO: Maybe here we should use a stratified sampling in order to avoid biased sampling
+        # towards a specific type of anomaly?
         contaminated_entries_indices = np.random.choice(contaminated_entries_indices, contamination_set_size,
                                                         replace=False)
         for index in contaminated_entries_indices:
@@ -290,6 +327,7 @@ class MVTecDataset(IadDataset):
         Returns:
             image (Tensor) : tensor of shape (C,H,W) with values in [0,1]
             label (int) : label of the image
+            anomaly_label (str) : type of anomaly
             mask (Tensor) : tensor of shape (1,H,W) with values in [0,1]
             path (str) : path of the input image
         """
@@ -307,12 +345,13 @@ class MVTecDataset(IadDataset):
         else:
             # return also the label, the mask and the path
             label = self.samples.iloc[index].label_index
+            anomaly_label = self.samples.iloc[index].label
             path = self.samples.iloc[index].image_path
+
             if label == LabelName.ABNORMAL:
                 mask = Image.open(self.samples.iloc[index].mask_path).convert("L")
                 mask = self.transform_mask(mask)
-
             else:
                 mask = torch.zeros(1, *self.gt_mask_size)
 
-            return image, label, mask.int(), path
+            return image, label, anomaly_label, mask.int(), path
