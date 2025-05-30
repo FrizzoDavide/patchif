@@ -298,8 +298,13 @@ class MVTecDataset(IadDataset):
 
         #TODO: Maybe here we should use a stratified sampling in order to avoid biased sampling
         # towards a specific type of anomaly?
-        contaminated_entries_indices = np.random.choice(contaminated_entries_indices, contamination_set_size,
-                                                        replace=False)
+        np.random.seed(seed)
+        contaminated_entries_indices = np.random.choice(
+            contaminated_entries_indices,
+            contamination_set_size,
+            replace=False
+        )
+
         for index in contaminated_entries_indices:
             entry_metadata = source.samples.iloc[index]
             if source.preload_imgs:
