@@ -55,6 +55,7 @@ The models will be evaluated using the industry standard anomaly detection datas
 - Student-Teacher Feature Pyramid: [paper](https://arxiv.org/abs/2103.04257), [code](https://github.com/gdwang08/STFPM)
 - PaDiM: [paper with code](https://paperswithcode.com/paper/padim-a-patch-distribution-modeling-framework)
 - PatchSVDD: [papers with code](https://paperswithcode.com/paper/patch-svdd-patch-level-svdd-for-anomaly)
+- PatchIF → under development
 
 **Feature Extraction Backbones**
 
