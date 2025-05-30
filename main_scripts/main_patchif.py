@@ -8,6 +8,7 @@ from datetime import datetime
 import ipdb
 import argparse
 import setproctitle
+from tqdm import tqdm
 
 import torch
 from torch.utils.data import DataLoader
@@ -20,7 +21,7 @@ from moviad.utilities.evaluator import Evaluator, append_results
 from moviad.utilities.configurations import TaskType, Split
 from moviad.utilities.exp_configurations import DATASET_PATHS, AD_LAYERS
 from moviad.utilities.custom_feature_extractor_trimmed import CustomFeatureExtractor, TORCH_BACKBONES, OTHERS_BACKBONES
-from moviad.utilities.manage_files import save_element, generate_path, get_most_recent_file
+from moviad.utilities.manage_files import get_current_time, save_element, generate_path, get_most_recent_file
 
 BATCH_SIZE = 8
 IMAGE_INPUT_SIZE = (224, 224)
@@ -46,8 +47,13 @@ def main(args):
 
     # Set paths
 
-    model_dirpath = generate_path(
+    patchif_results_path = generate_path(
         basepath = os.getcwd(),
+        folders = ["patchif_results"]
+    )
+
+    model_dirpath = generate_path(
+        basepath = patchif_results_path,
         folders = [
             "models_state_dict",
             args.dataset_name,
@@ -55,9 +61,17 @@ def main(args):
     )
 
     results_dirpath = generate_path(
-        basepath = os.getcwd(),
+        basepath = patchif_results_path,
         folders = [
-            "patchif_results",
+            "metrics",
+            args.dataset_name,
+        ]
+    )
+
+    anomaly_map_dirpath = generate_path(
+        basepath = patchif_results_path,
+        folders = [
+            "anomaly_maps",
             args.dataset_name,
         ]
     )
@@ -69,6 +83,9 @@ def main(args):
             exp_name = f"PatchIF_{args.ad_model_name}_{args.backbone_model_name}_n_estimators_{args.n_estimators}_contamination_{args.contamination_ratio}"
     else:
         exp_name = args.exp_name
+
+    exp_time = get_current_time()
+    exp_dir_name = f"{exp_time}_{exp_name}"
 
     print('#'* 50)
     print(f"Starting experiment: {exp_name}")
@@ -92,10 +109,8 @@ def main(args):
             print(f"Experiment for category: {category}")
             print('#'* 50)
 
-
-            exp_name = f"{exp_name}_{category}_seed_{seed}"
-
-            setproctitle.setproctitle(exp_name)
+            run_name = f"{exp_name}_{category}_seed_{seed}"
+            setproctitle.setproctitle(run_name)
 
             if args.train:
 
@@ -151,9 +166,10 @@ def main(args):
 
                     print('#'* 50)
                     print(f"Contaminating the train dataset with contamination ratio {args.contamination_ratio}")
+                    print(f"Seed: {seed}")
                     print('#'* 50)
 
-                    _ = train_dataset.contaminate(
+                    contamination_set_size = train_dataset.contaminate(
                         source = test_dataset,
                         ratio = args.contamination_ratio,
                         seed = seed
@@ -162,6 +178,7 @@ def main(args):
                 print('#'* 50)
                 print(f"-- TRAIN DATASET INFORMATION --")
                 print(f"Length: {len(train_dataset)}")
+                print(f"Number of anomalies: {contamination_set_size}")
                 print(f"Contamination ratio: {train_dataset.compute_contamination_ratio()}")
                 print('#'* 50)
 
@@ -206,14 +223,14 @@ def main(args):
                     folders = [
                         category,
                         model.name,
-                        args.backbone,
-                        exp_name,
+                        args.backbone_model_name,
+                        exp_dir_name,
                         f"seed_{seed}"
                     ]
                 )
 
                 print('#'* 50)
-                print(f"Training the {args.model_name} model")
+                print(f"Training the {model.name} model")
                 print('#'* 50)
                 trainer.train()
 
@@ -253,19 +270,8 @@ def main(args):
                         folders = [
                             category,
                             model.name,
-                            args.backbone,
-                            exp_name,
-                            f"seed_{seed}"
-                        ]
-                    )
-
-                    results_dirpath_seed = generate_path(
-                        basepath = results_dirpath,
-                        folders = [
-                            category,
-                            model.name,
-                            args.backbone,
-                            exp_name,
+                            args.backbone_model_name,
+                            exp_dir_name,
                             f"seed_{seed}"
                         ]
                     )
@@ -300,33 +306,84 @@ def main(args):
                     pin_memory = True
                 )
 
-                print('#'* 50)
-                print("Evaluating the model on the test set")
-                print('#'* 50)
+                if args.save_metrics:
 
-                evaluator = Evaluator(test_dataloader=test_dataloader, device=device)
-                scores = evaluator.evaluate(padim)
+                    results_dirpath_seed = generate_path(
+                        basepath = results_dirpath,
+                        folders = [
+                            category,
+                            model.name,
+                            args.backbone_model_name,
+                            exp_dir_name,
+                            f"seed_{seed}"
+                        ]
+                    )
 
-                metrics_path = os.path.join(results_dirpath_seed, f"{model.name}_{args.backbone_model_name}_{category}_metrics_seed_{seed}.csv")
+                    print('#'* 50)
+                    print("Evaluating the model on the test set")
+                    print('#'* 50)
 
-                print('#'* 50)
-                print("Saving metrics to file")
-                print('#'* 50)
+                    evaluator = Evaluator(test_dataloader=test_loader, device=device)
+                    scores = evaluator.evaluate(model)
 
-                append_results(
-                    output_path = metrics_path,
-                    category = category,
-                    seed = seed,
-                    *scores,
-                    ad_model = "padim",  # ad_model
-                    feature_layers = AD_LAYERS[args.backbone_model_name],
-                    backbone = args.backbone_model_name,
-                    weights = "IMAGENET1K_V2",  # NOTE: hardcoded, should be changed
-                    bootstrap_layer = None,
-                    epochs = -1,  # epochs (not used)
-                    input_img_size = IMAGE_INPUT_SIZE,
-                    output_img_size = OUTPUT_SIZE,
-                )
+                    metrics_path = os.path.join(results_dirpath_seed, f"{model.name}_{args.backbone_model_name}_{category}_metrics_seed_{seed}.csv")
+
+                    print('#'* 50)
+                    print("Saving metrics to file")
+                    print('#'* 50)
+
+                    append_results(
+                        output_path = metrics_path,
+                        category = category,
+                        seed = seed,
+                        scores_dict = scores,
+                        ad_model = model.name,
+                        feature_layers = AD_LAYERS[args.backbone_model_name],
+                        backbone = args.backbone_model_name,
+                        input_img_size = IMAGE_INPUT_SIZE,
+                        output_img_size = OUTPUT_SIZE,
+                    )
+
+                if args.save_figures:
+
+                    anomaly_map_dirpath_seed = generate_path(
+                        basepath = anomaly_map_dirpath,
+                        folders = [
+                            category,
+                            model.name,
+                            args.backbone_model_name,
+                            exp_dir_name,
+                            f"seed_{seed}"
+                        ]
+                    )
+
+                    print('#'* 50)
+                    print(f"Producing anomaly maps for category {category}")
+                    print('#'* 50)
+
+                    for images, labels, anomaly_labels, masks, paths in tqdm(iter(test_loader)):
+
+                        anomaly_maps, pred_scores = model(images.to(device))
+                        anomaly_maps = torch.permute(torch.tensor(anomaly_maps), (0, 2, 3, 1))
+
+                        for i in range(anomaly_maps.shape[0]):
+
+                            print("#" * 50)
+                            print(f"Creating anomaly map for image with path: {paths[i]}")
+                            print(f"Label: {labels[i]}")
+                            print(f"Anomaly label: {anomaly_labels[i]}")
+                            print(f"Predicted score: {pred_scores[i]}")
+                            print("#" * 50)
+
+                            model.save_anomaly_map(
+                                dirpath = anomaly_map_dirpath_seed,
+                                anomaly_map = anomaly_maps[i].cpu().numpy(),
+                                pred_score = pred_scores[i],
+                                filepath = paths[i],
+                                label = labels[i],
+                                anomaly_label = anomaly_labels[i],
+                                mask = masks[i],
+                            )
 
 if __name__ == "__main__":
 
@@ -336,11 +393,12 @@ if __name__ == "__main__":
     parser.add_argument("--test", action="store_true",help="Run testing")
     parser.add_argument("--debug", action="store_true",help="Run debug")
     parser.add_argument("--save_figures", action="store_true",help="Save figures")
+    parser.add_argument("--save_metrics", action="store_true",help="Save metrics")
     parser.add_argument("--save_model", action="store_true",help="Save model")
     parser.add_argument("--save_logs", action="store_true",help="Save logs")
     parser.add_argument("--exp_name", type=str , default="", help="Experiment name")
+    parser.add_argument("--dataset_name", type=str , default="mvtec", help="Dataset name, available: mvtec")
     parser.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
-    parser.add_argument("--results_dirpath", type=str, default=None)
     parser.add_argument("--device_num", type=int, default=0, help="cuda device number")
     # model parameters
     parser.add_argument("--backbone_model_name",type=str,help="Available backbones: resnet18, wide_resnet50_2, mobilenet_v2, mcunet-in3")

@@ -15,19 +15,21 @@ contamination_ratio=0.1
 device_num=2
 
 # experiment parameters
-seeds=(0 1 2)
+# seeds=(0 1 2)
+seeds=(0)
 
 python $script_path \
   --train \
   --test \
   --seeds "${seeds[@]}"\
   --backbone_model_name $backbone \
-  --ad_model $ad_model \
+  --ad_model_name $ad_model \
   --n_estimators $n_estimators \
   --plus \
   --categories "${categories[@]}" \
   --contaminate \
   --contamination_ratio $contamination_ratio \
+  --save_metrics \
   --device $device_num
 
 

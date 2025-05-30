@@ -197,7 +197,7 @@ class PatchIF(nn.Module):
             )
         # dimensionality reduction: select the random dimensions to reduce the embedding vectors
         embedding_vectors = torch.index_select(
-            embedding_vectors.to(self.device), 1, self.random_dimensions
+            embedding_vectors.to(self.device), 1, self.random_dimensions.to(self.device)
         )
         return embedding_vectors
 
