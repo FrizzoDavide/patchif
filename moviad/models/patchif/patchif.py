@@ -285,6 +285,28 @@ class PatchIF(nn.Module):
 
         return score_map, img_scores
 
+
+    #TODO: Make a function to_pickle and from_pickle (like the ones implemented inside ExtendedTree in the c_pickle branch)
+    # This function converts the self.node attribute of an ExtendedTree object into a pickable format and viceversa
+    # So in this function I have to iterate over the self.trees attribute and convert each tree to a pickable format → this to then save the
+    # model into a pickle. Then I have to use the from_pickle function to convert the pickable format back to the ExtendedTree object
+
+    def trees_to_pickle(self):
+
+        """
+        Convert the trees to a pickable format.
+        """
+
+        pass
+
+    def trees_from_pickle(self, pickled_trees: List[Dict[str, Any]]):
+
+        """
+        Convert the pickled trees back to the ExtendedTree objects.
+        """
+
+        pass
+
     def state_dict(self, *args, **kwargs):
         state_dict = super().state_dict(*args, **kwargs)
         # add all the hyperparameters to the state dict
