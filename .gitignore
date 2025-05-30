@@ -206,3 +206,4 @@ patchif_notes/
 #NOTE: png and pth files
 *.png
 *.pth
+*.csv
