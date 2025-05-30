@@ -43,7 +43,7 @@ class PatchIF(nn.Module):
         "max_depth",
         "t_d",
         "d",
-        # "trees"
+        "trees"
     ]
 
     def __init__(
@@ -291,26 +291,37 @@ class PatchIF(nn.Module):
     # So in this function I have to iterate over the self.trees attribute and convert each tree to a pickable format → this to then save the
     # model into a pickle. Then I have to use the from_pickle function to convert the pickable format back to the ExtendedTree object
 
-    def trees_to_pickle(self):
+    def trees_to_pickle(
+            self,
+            shape: tuple[int,...]
+    ):
 
         """
         Convert the trees to a pickable format.
         """
 
-        pass
+        assert self.trees is not None, "Trees not initialized, to initialize the trees you have to train the model"
+
+        self.trees = [tree.to_pickle(shape) for tree in self.trees]
+
 
     def trees_from_pickle(self, pickled_trees: List[Dict[str, Any]]):
 
         """
         Convert the pickled trees back to the ExtendedTree objects.
+
+        Args:
+            pickled_trees: List of ExtendedTree objects in a pickable format.
         """
 
-        pass
+        self.trees = [tree.from_pickle(num_nodes=len(tree.nodes)) for tree in pickled_trees]
 
     def state_dict(self, *args, **kwargs):
         state_dict = super().state_dict(*args, **kwargs)
         # add all the hyperparameters to the state dict
         for p in self.HYPERPARAMS:
+            if p == "trees":
+                self.trees_to_pickle(shape=(self.d,))
             state_dict[p] = getattr(self, p)
         return state_dict
 
@@ -318,6 +329,8 @@ class PatchIF(nn.Module):
 
         # load the hyperparameters
         for p in self.HYPERPARAMS:
+            if p == "trees":
+                self.trees_from_pickle(pickled_trees=state_dict[p])
             setattr(self, p, state_dict[p])
         # load the backbone models
         self.load_backbone()

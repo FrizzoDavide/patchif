@@ -233,6 +233,7 @@ def main(args):
                 print(f"Training the {model.name} model")
                 print('#'* 50)
                 trainer.train()
+                ipdb.set_trace()
 
                 if args.save_model:
 
