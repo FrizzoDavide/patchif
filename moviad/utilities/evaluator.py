@@ -222,48 +222,41 @@ class Evaluator:
         threshold = thresholds[np.argmax(f1)]
 
         return threshold
-    
+
 def append_results(
     output_path: Union[str, os.PathLike],
     category: str,
     seed: Optional[int],
-    img_roc_auc: float,
-    per_pixel_rocauc: float,
-    f1_img: float,
-    f1_pxl: float,
-    pr_auc_img: float,
-    pr_auc_pxl: float,
-    au_pro_pxl: float,
+    scores_dict: dict,
     ad_model: str,
     feature_layers: str,
     backbone: str,
-    weights: Optional[str],
-    bootstrap_layer: Optional[int],
-    epochs: Optional[int],
     input_img_size: Optional[tuple[int, int]],
     output_img_size: Optional[tuple[int, int]],
+    weights: Optional[str] = "IMAGENET1K_V2", #NOTE: Hardcoded, should be changed
 ):
     """
     Save the results of the evaluation in a file
     """
+
+    #NOTE: Removed `epcohs` and `bootstrap_layer` arguments since they are not used anymore
+
     df = pd.DataFrame(
         {
             "category": [category],
             "seed": [seed],
-            "img_roc_auc": [img_roc_auc],
-            "per_pixel_rocauc": [per_pixel_rocauc],
-            "f1_img": [f1_img],
-            "f1_pxl": [f1_pxl],
-            "pr_auc_img": [pr_auc_img],
-            "pr_auc_pxl": [pr_auc_pxl],
-            "au_pro_pxl": [au_pro_pxl],
+            "img_roc_auc": [scores_dict["img_roc_auc"]],
+            "per_pixel_rocauc": [scores_dict["pxl_roc_auc"]],
+            "f1_img": [scores_dict["img_f1"]],
+            "f1_pxl": [scores_dict["pxl_f1"]],
+            "pr_auc_img": [scores_dict["img_pr_auc"]],
+            "pr_auc_pxl": [scores_dict["pxl_pr_auc"]],
+            "au_pro_pxl": [scores_dict["pxl_au_pro"]],
             "ad_model": [ad_model],
             "feature_layers": [feature_layers],
             "backbone": [backbone],
             "weights": [weights],
             "eval_datetime": [pd.Timestamp.now()],
-            "bootstrap_layer": [bootstrap_layer],
-            "epochs": [epochs],
             "input_img_size": [input_img_size],
             "output_img_size": [output_img_size],
         }
@@ -271,7 +264,7 @@ def append_results(
 
     print('#'* 50)
     print(f"Metrics results for category {category}")
-    print(df.to_markdown())
+    print(df.T.to_markdown())
     print('#'* 50)
 
     if os.path.isfile(output_path):
