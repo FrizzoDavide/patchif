@@ -152,7 +152,7 @@ def open_element(
         with open(file_path, "r") as fl:
             element = json.load(fl)
     elif filetype == "pth":
-        element = torch.load(file_path)
+        element = torch.load(file_path,weights_only=False)
     else:
         raise ValueError("Invalid filetype. Please choose either 'pickle' 'json' or 'pth'")
     return element

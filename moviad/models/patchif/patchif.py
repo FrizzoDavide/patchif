@@ -314,7 +314,6 @@ class PatchIF(nn.Module):
 
         self.trees = [tree.to_pickle(shape) for tree in self.trees]
 
-
     def trees_from_pickle(self, pickled_trees: List[Dict[str, Any]]):
 
         """
@@ -335,7 +334,18 @@ class PatchIF(nn.Module):
             state_dict[p] = getattr(self, p)
         return state_dict
 
-    def load_state_dict(self, state_dict: Mapping[str, Any], strict: bool = True):
+    def get_state_dict(self) -> dict:
+
+        state_dict = dict()
+
+        for p in self.HYPERPARAMS:
+            if p == "trees":
+                self.trees_to_pickle(shape=(self.d,))
+            state_dict[p] = getattr(self, p)
+
+        return state_dict
+
+    def load_state_dict(self, state_dict: dict, strict: bool = True):
 
         # load the hyperparameters
         for p in self.HYPERPARAMS:
@@ -343,7 +353,7 @@ class PatchIF(nn.Module):
                 self.trees_from_pickle(pickled_trees=state_dict[p])
             setattr(self, p, state_dict[p])
 
-        # load the backbone models
+        # load the backbone model
         self.load_backbone()
 
         #TODO: Here I probably have to call self.load_ad_model() and I have to

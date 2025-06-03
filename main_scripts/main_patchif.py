@@ -21,7 +21,7 @@ from moviad.utilities.evaluator import Evaluator, append_results
 from moviad.utilities.configurations import TaskType, Split
 from moviad.utilities.exp_configurations import DATASET_PATHS, AD_LAYERS, set_exp_seed
 from moviad.utilities.custom_feature_extractor_trimmed import CustomFeatureExtractor, TORCH_BACKBONES, OTHERS_BACKBONES
-from moviad.utilities.manage_files import get_current_time, save_element, generate_path, get_most_recent_file
+from moviad.utilities.manage_files import get_current_time, save_element, generate_path, get_most_recent_file, open_element
 
 BATCH_SIZE = 8
 IMAGE_INPUT_SIZE = (224, 224)
@@ -40,6 +40,7 @@ def main(args):
     print(f"AD layers: {AD_LAYERS[args.backbone_model_name]}")
     print(f"AD model: {args.ad_model_name}")
     print(f"Number of estimators: {args.n_estimators}")
+    print(f"Max nodes: {args.max_nodes}")
     print(f"device: {device}")
     print(f"Contamination ratio: {args.contamination_ratio}")
     print(f"Contamination ratio type: {type(args.contamination_ratio)}")
@@ -78,18 +79,11 @@ def main(args):
 
     if args.exp_name == "":
         if args.contaminate:
-            exp_name = f"PatchIF_{args.ad_model_name}_{args.backbone_model_name}_n_estimators_{args.n_estimators}"
-        else:
             exp_name = f"PatchIF_{args.ad_model_name}_{args.backbone_model_name}_n_estimators_{args.n_estimators}_contamination_{args.contamination_ratio}"
+        else:
+            exp_name = f"PatchIF_{args.ad_model_name}_{args.backbone_model_name}_n_estimators_{args.n_estimators}"
     else:
         exp_name = args.exp_name
-
-    exp_time = get_current_time()
-    exp_dir_name = f"{exp_time}_{exp_name}"
-
-    print('#'* 50)
-    print(f"Starting experiment: {exp_name}")
-    print('#'* 50)
 
     for seed in args.seeds:
 
@@ -111,6 +105,13 @@ def main(args):
             if args.train:
 
                 print("---- PatchIF Training ----")
+
+                exp_time = get_current_time()
+                exp_dir_name = f"{exp_time}_{exp_name}"
+
+                print('#'* 50)
+                print(f"Starting experiment: {exp_name}")
+                print('#'* 50)
 
                 print('#'* 50)
                 print(f"Defining training dataset MVTecDataset category {category}")
@@ -193,6 +194,7 @@ def main(args):
                     layers_idxs = AD_LAYERS[args.backbone_model_name],
                     ad_model_type = args.ad_model_name,
                     n_estimators = args.n_estimators,
+                    max_nodes = args.max_nodes,
                     plus = args.plus,
                     device = device
                 )
@@ -229,32 +231,22 @@ def main(args):
                 print(f"Training the {model.name} model")
                 print('#'* 50)
                 trainer.train()
-
-                # print('#'* 50)
-                # print("Training finished, printing forest information")
-                # print('#'* 50)
-                #
-                # for i,tree in enumerate(model.trees):
-                #     print('#'* 50)
-                #     print(f"Information tree {i}")
-                #     for node in tree.nodes:
-                #         node.contents.print_node()
+                ipdb.set_trace()
 
                 if args.save_model:
 
-                    #TODO: Placeholder → here we have to see how to save the model state dict in a pth file or similar with the ctypes trees objects
+                    model_dict = model.state_dict()
+
                     save_element(
-                        element = model.state_dict(),
+                        element = model_dict,
                         dirpath = model_dirpath_seed,
-                        filename = f"{model.name}_{args.backbone_model_name}_{args.category}_state_dict_seed_{seed}.pth",
-                        filetype = "pth"
+                        filename = f"{model.name}_{args.backbone_model_name}_{category}_state_dict_seed_{seed}",
+                        filetype = "pickle"
                     )
 
                     print('#'* 50)
                     print(f"Model state dict successfully saved in: {model_dirpath_seed}")
                     print('#'* 50)
-
-            ipdb.set_trace()
 
             if args.test:
 
@@ -283,20 +275,24 @@ def main(args):
                             category,
                             model.name,
                             args.backbone_model_name,
-                            exp_dir_name,
+                            exp_name if not args.train else exp_dir_name,
                             f"seed_{seed}"
                         ]
                     )
 
                     model_path = get_most_recent_file(model_dirpath_seed, file_pos = args.file_pos)
 
+                    print('#'* 50)
+                    print(f"Loading state dict from path: {model_path}")
+                    print('#'* 50)
+
                     #TODO: Use the open_element function to load the model state dict, instead of using torch.load? Do this after having solved the problem
                     # of saving the model state dict in a pth file or similar with the ctypes trees objects
 
+                    model_state_dict = open_element(model_path,filetype="pickle")
+
                     #TODO: Placeholder → here we have to see how to save the model state dict in a pth file or similar with the ctypes trees objects
-                    model.load_state_dict(
-                        torch.load(model_path, map_location=device, weights_only=False), strict=False
-                    )
+                    model.load_state_dict(state_dict=model_state_dict)
                     model.to(device)
                     print(f"Loaded model from model_path: {model_path}")
 
@@ -329,7 +325,7 @@ def main(args):
                             category,
                             model.name,
                             args.backbone_model_name,
-                            exp_dir_name,
+                            exp_name if not args.train else exp_dir_name,
                             f"seed_{seed}"
                         ]
                     )
@@ -367,7 +363,7 @@ def main(args):
                             category,
                             model.name,
                             args.backbone_model_name,
-                            exp_dir_name,
+                            exp_name if not args.train else exp_dir_name,
                             f"seed_{seed}"
                         ]
                     )
@@ -415,10 +411,12 @@ if __name__ == "__main__":
     parser.add_argument("--dataset_name", type=str , default="mvtec", help="Dataset name, available: mvtec")
     parser.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
     parser.add_argument("--device_num", type=int, default=0, help="cuda device number")
+    parser.add_argument("--file_pos", type=int, default=0, help="file position in a folder, to load the last saved model for testing")
     # model parameters
     parser.add_argument("--backbone_model_name",type=str,help="Available backbones: resnet18, wide_resnet50_2, mobilenet_v2, mcunet-in3")
     parser.add_argument("--ad_model_name", type=str, default="eif", help="Type of AD model, eif or if")
     parser.add_argument("--n_estimators", type=int, default=100, help="Number of estimators for the IF/EIF model, for patchif")
+    parser.add_argument("--max_nodes", type=int, default=10000, help="Maximum number of nodes per tree in the IF/EIF model, for patchif")
     parser.add_argument("--plus", action='store_true', help="Flag to use the EIF or EIF+ AD model")
     # dataset parameters
     parser.add_argument("--categories", type=str, nargs="+", default=CATEGORIES)
