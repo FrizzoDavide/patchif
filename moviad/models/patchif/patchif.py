@@ -54,6 +54,7 @@ class PatchIF(nn.Module):
         ad_model_type: str = "eif",
         plus: bool = True,
         eta: float = 1.5,
+        max_nodes: int = 10000,
         n_estimators: int = 100,
         max_samples: int = 256,
         max_depth: str = "auto",
@@ -67,6 +68,7 @@ class PatchIF(nn.Module):
         self.ad_model_type = ad_model_type
         self.plus = plus
         self.eta = eta
+        self.max_nodes = max_nodes
         self.n_estimators = n_estimators
         self.max_samples = max_samples
         self.max_depth = max_depth
@@ -100,6 +102,7 @@ class PatchIF(nn.Module):
             self.ad_model = EIF(
                 plus = self.plus,
                 eta = self.eta,
+                max_nodes = self.max_nodes,
                 n_estimators = self.n_estimators,
                 max_samples = self.max_samples,
                 max_depth = self.max_depth,
@@ -113,6 +116,13 @@ class PatchIF(nn.Module):
             )
         else:
             raise ValueError(f"Unknown anomaly detection model type: {self.ad_model_type}. Supported types: 'eif', 'if'.")
+
+        #NOTE: If the `self` has the `trees` attribute (in case we are calling
+        # the load_state_dict method) then we set the `self.ad_model.trees` attribute
+        # to the `self.trees` attribute
+
+        if hasattr(self, "trees") and self.trees is not None:
+            self.ad_model.trees = self.trees
 
     #NOTE: For the moment I am copying exactly the methods from Padim
 
@@ -332,8 +342,15 @@ class PatchIF(nn.Module):
             if p == "trees":
                 self.trees_from_pickle(pickled_trees=state_dict[p])
             setattr(self, p, state_dict[p])
+
         # load the backbone models
         self.load_backbone()
+
+        #TODO: Here I probably have to call self.load_ad_model() and I have to
+        # initialize the IF/EIF model with also self.trees attribute equal to the `trees`
+        # attribute of the state_dict
+        self.load_ad_model()
+
         # remove the hyperparameters from the state dict
         state_dict = {k: v for k, v in state_dict.items() if k not in self.HYPERPARAMS}
         return super().load_state_dict(state_dict, strict=strict)

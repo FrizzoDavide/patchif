@@ -29,6 +29,7 @@ python $script_path \
   --categories "${categories[@]}" \
   --contaminate \
   --contamination_ratio $contamination_ratio \
+  --save_model \
   --save_metrics \
   --device $device_num
 
