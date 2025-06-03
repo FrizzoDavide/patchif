@@ -2,6 +2,10 @@
 Experiment configurations
 """
 
+import numpy as np
+import random
+import torch
+
 MODEL_NAMES = (
     "patchif",
     "patchcore",
@@ -37,3 +41,29 @@ AD_LAYERS = {
     "mcunet-in3": [3, 6, 9],
     "resnet18": ["layer1", "layer2", "layer3"]
 }
+
+def set_exp_seed(
+        seed: int = 0,
+) -> None:
+
+    """
+    Set the seed for reproducibility for the different libraries used in the project.
+
+    Args:
+        seed: integer, the seed to set
+
+    Returns:
+        None → the function just sets the seed for the different libraries.
+    """
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    print('#'* 50)
+    print(f"Seed set to {seed}")
+    print('#'* 50)
+

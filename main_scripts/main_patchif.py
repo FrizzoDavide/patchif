@@ -19,7 +19,7 @@ from moviad.trainers.trainer_patchif import TrainerPatchIF
 from moviad.datasets.mvtec.mvtec_dataset import MVTecDataset, CATEGORIES
 from moviad.utilities.evaluator import Evaluator, append_results
 from moviad.utilities.configurations import TaskType, Split
-from moviad.utilities.exp_configurations import DATASET_PATHS, AD_LAYERS
+from moviad.utilities.exp_configurations import DATASET_PATHS, AD_LAYERS, set_exp_seed
 from moviad.utilities.custom_feature_extractor_trimmed import CustomFeatureExtractor, TORCH_BACKBONES, OTHERS_BACKBONES
 from moviad.utilities.manage_files import get_current_time, save_element, generate_path, get_most_recent_file
 
@@ -93,11 +93,7 @@ def main(args):
 
     for seed in args.seeds:
 
-        random.seed(seed)
-        torch.manual_seed(seed)
-
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(seed)
+        set_exp_seed(seed = seed)
 
         print('#'* 50)
         print(f"Experiment for seed: {seed}")
@@ -233,7 +229,16 @@ def main(args):
                 print(f"Training the {model.name} model")
                 print('#'* 50)
                 trainer.train()
-                ipdb.set_trace()
+
+                # print('#'* 50)
+                # print("Training finished, printing forest information")
+                # print('#'* 50)
+                #
+                # for i,tree in enumerate(model.trees):
+                #     print('#'* 50)
+                #     print(f"Information tree {i}")
+                #     for node in tree.nodes:
+                #         node.contents.print_node()
 
                 if args.save_model:
 
@@ -244,6 +249,12 @@ def main(args):
                         filename = f"{model.name}_{args.backbone_model_name}_{args.category}_state_dict_seed_{seed}.pth",
                         filetype = "pth"
                     )
+
+                    print('#'* 50)
+                    print(f"Model state dict successfully saved in: {model_dirpath_seed}")
+                    print('#'* 50)
+
+            ipdb.set_trace()
 
             if args.test:
 
@@ -278,6 +289,9 @@ def main(args):
                     )
 
                     model_path = get_most_recent_file(model_dirpath_seed, file_pos = args.file_pos)
+
+                    #TODO: Use the open_element function to load the model state dict, instead of using torch.load? Do this after having solved the problem
+                    # of saving the model state dict in a pth file or similar with the ctypes trees objects
 
                     #TODO: Placeholder → here we have to see how to save the model state dict in a pth file or similar with the ctypes trees objects
                     model.load_state_dict(
