@@ -16,25 +16,30 @@ contamination_ratio=0.1
 device_num=2
 
 # experiment parameters
-# seeds=(0 1 2)
-seeds=(0)
+n_runs=1
 
 # experiment name
-# exp_name="03-06-2025_17-28-49_PatchIF_eif_mobilenet_v2_n_estimators_100_contamination_0.1"
+
+# NOTE: PatchIF_EIF+
+# exp_name="04-06-2025_07-52-28_PatchIF_eif_mobilenet_v2_n_estimators_100_contamination_0.1"
+
+# NOTE: PatchIF_IF
+# exp_name="04-06-2025_08-33-01_PatchIF_if_mobilenet_v2_n_estimators_100_contamination_0.1"
+
+#NOTE: PatchIF_EIF
+exp_name="04-06-2025_08-44-19_PatchIF_eif_mobilenet_v2_n_estimators_100_contamination_0.1"
 
 python $script_path \
-  --train \
+  --exp_name $exp_name \
   --test \
-  --seeds "${seeds[@]}"\
+  --n_runs $n_runs \
   --backbone_model_name $backbone \
   --ad_model_name $ad_model \
   --n_estimators $n_estimators \
   --max_nodes $max_nodes \
-  --plus \
   --categories "${categories[@]}" \
   --contaminate \
   --contamination_ratio $contamination_ratio \
-  --save_model \
   --save_metrics \
   --device $device_num \
   --file_pos 0

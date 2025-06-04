@@ -9,6 +9,7 @@ import ipdb
 import argparse
 import setproctitle
 from tqdm import tqdm
+import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
@@ -85,7 +86,9 @@ def main(args):
     else:
         exp_name = args.exp_name
 
-    for seed in args.seeds:
+    seeds = np.arange(0,args.n_runs)
+
+    for seed in seeds:
 
         set_exp_seed(seed = seed)
 
@@ -231,7 +234,6 @@ def main(args):
                 print(f"Training the {model.name} model")
                 print('#'* 50)
                 trainer.train()
-                ipdb.set_trace()
 
                 if args.save_model:
 
@@ -281,17 +283,7 @@ def main(args):
                     )
 
                     model_path = get_most_recent_file(model_dirpath_seed, file_pos = args.file_pos)
-
-                    print('#'* 50)
-                    print(f"Loading state dict from path: {model_path}")
-                    print('#'* 50)
-
-                    #TODO: Use the open_element function to load the model state dict, instead of using torch.load? Do this after having solved the problem
-                    # of saving the model state dict in a pth file or similar with the ctypes trees objects
-
                     model_state_dict = open_element(model_path,filetype="pickle")
-
-                    #TODO: Placeholder → here we have to see how to save the model state dict in a pth file or similar with the ctypes trees objects
                     model.load_state_dict(state_dict=model_state_dict)
                     model.to(device)
                     print(f"Loaded model from model_path: {model_path}")
@@ -337,10 +329,11 @@ def main(args):
                     evaluator = Evaluator(test_dataloader=test_loader, device=device)
                     scores = evaluator.evaluate(model)
 
-                    metrics_path = os.path.join(results_dirpath_seed, f"{model.name}_{args.backbone_model_name}_{category}_metrics_seed_{seed}.csv")
+                    metrics_filename = f"{model.name}_{args.backbone_model_name}_{category}_metrics_seed_{seed}.csv"
+                    metrics_path = os.path.join(results_dirpath_seed, metrics_filename)
 
                     print('#'* 50)
-                    print("Saving metrics to file")
+                    print(f"Saving metrics to path: {metrics_path}")
                     print('#'* 50)
 
                     append_results(
@@ -409,7 +402,7 @@ if __name__ == "__main__":
     parser.add_argument("--save_logs", action="store_true",help="Save logs")
     parser.add_argument("--exp_name", type=str , default="", help="Experiment name")
     parser.add_argument("--dataset_name", type=str , default="mvtec", help="Dataset name, available: mvtec")
-    parser.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
+    parser.add_argument("--n_runs", type=int, default=1, help="Number of runs for the experiment")
     parser.add_argument("--device_num", type=int, default=0, help="cuda device number")
     parser.add_argument("--file_pos", type=int, default=0, help="file position in a folder, to load the last saved model for testing")
     # model parameters
@@ -426,7 +419,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-    log_filename = "padim.log"
+    log_filename = "patchif.log"
     s = "DEBUG " if args.debug else ""
 
     try:
