@@ -207,3 +207,4 @@ patchif_notes/
 *.png
 *.pth
 *.csv
+*.pickle
