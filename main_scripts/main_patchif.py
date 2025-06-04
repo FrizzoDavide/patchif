@@ -86,6 +86,9 @@ def main(args):
     else:
         exp_name = args.exp_name
 
+    exp_time = get_current_time()
+    exp_dir_name = f"{exp_time}_{exp_name}"
+
     seeds = np.arange(0,args.n_runs)
 
     for seed in seeds:
@@ -108,9 +111,6 @@ def main(args):
             if args.train:
 
                 print("---- PatchIF Training ----")
-
-                exp_time = get_current_time()
-                exp_dir_name = f"{exp_time}_{exp_name}"
 
                 print('#'* 50)
                 print(f"Starting experiment: {exp_name}")
