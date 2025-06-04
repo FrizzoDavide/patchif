@@ -56,7 +56,7 @@ def set_exp_seed(
         None → the function just sets the seed for the different libraries.
     """
 
-    random.seed(seed)
+    random.seed(int(seed))
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)

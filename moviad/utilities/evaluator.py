@@ -4,6 +4,7 @@ from typing import Union, Optional, Tuple
 
 import pandas as pd
 from tqdm import tqdm
+import ipdb
 
 import torch
 
@@ -262,9 +263,14 @@ def append_results(
         }
     )
 
+    # Prepare df to be printed
+    df = df.T
+    df.index.name = "Metric"
+    df.columns = ["Value"]
+
     print('#'* 50)
     print(f"Metrics results for category {category}")
-    print(df.T.to_markdown())
+    print(df.to_markdown())
     print('#'* 50)
 
     if os.path.isfile(output_path):
