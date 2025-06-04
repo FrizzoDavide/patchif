@@ -124,6 +124,12 @@ class PatchIF(nn.Module):
         if hasattr(self, "trees") and self.trees is not None:
             self.ad_model.trees = self.trees
 
+        #NOTE: Add the `corrected_depths` attribute to all the `ExtendedTree` objects
+        # in the `self.ad_model.trees` list
+        if hasattr(self.ad_model, "trees") and self.ad_model.trees is not None:
+            for tree in self.ad_model.trees:
+                tree.corrected_depths = tree.get_corrected_depths()
+
     #NOTE: For the moment I am copying exactly the methods from Padim
 
     def load_backbone(self):
@@ -214,12 +220,21 @@ class PatchIF(nn.Module):
     def forward(self, x):
 
         """
-        In training mode just return the patch embeddings, as done in Padim. Then in the Trainer class
+        In training mode just the patch embeddings are returned. Then in the Trainer class
         the embeddings obtained from all the input samples will be grouped together to obtain the memory bank
         on which `self.ad_model` will be trained.
 
-        In inference mode, use the predict (or _predict) method of self.ad_model IF/EIF model on the patch embeddings of a test sample.
+        In inference mode, the predict method of self.ad_model IF/EIF model is applied on the patch embeddings of a test sample
+        to obtain its anomaly score.
         Successfully the anomaly map and the image level anomaly score will be computed.
+
+        Args:
+            x: Input tensor
+
+        Returns:
+            self.layers_outputs: dict[str, list[torch.Tensor]]: Dictionary with the outputs of the layers, returned in training mode.
+            score_map: np.ndarray: Anomaly score map of the input image, returned in inference mode.
+            img_scores: np.ndarray: Anomaly scores for each input image, returned in inference mode.
         """
 
         # 1. extract feature maps and get the raw layer outputs (conv. feature maps)
@@ -295,11 +310,7 @@ class PatchIF(nn.Module):
 
         return score_map, img_scores
 
-
-    #TODO: Make a function to_pickle and from_pickle (like the ones implemented inside ExtendedTree in the c_pickle branch)
-    # This function converts the self.node attribute of an ExtendedTree object into a pickable format and viceversa
-    # So in this function I have to iterate over the self.trees attribute and convert each tree to a pickable format → this to then save the
-    # model into a pickle. Then I have to use the from_pickle function to convert the pickable format back to the ExtendedTree object
+    #NOTE: Function to convert the `ExtendedTree` objects contained in `self.trees` to a pickable format
 
     def trees_to_pickle(
             self,
@@ -308,13 +319,21 @@ class PatchIF(nn.Module):
 
         """
         Convert the trees to a pickable format.
+
+        Args:
+            shape: Patch embedding dimension
+
+        Returns:
+            None → the function just modifies the `self.trees` attribute of the PatchIF object
         """
 
         assert self.trees is not None, "Trees not initialized, to initialize the trees you have to train the model"
 
         self.trees = [tree.to_pickle(shape) for tree in self.trees]
 
-    def trees_from_pickle(self, pickled_trees: List[Dict[str, Any]]):
+    #NOTE: Function to convert the pickled trees back to the `ExtendedTree` objects
+
+    def trees_from_pickle(self, pickled_trees: List[ExtendedTree]):
 
         """
         Convert the pickled trees back to the ExtendedTree objects.
@@ -325,6 +344,9 @@ class PatchIF(nn.Module):
 
         self.trees = [tree.from_pickle(num_nodes=len(tree.nodes)) for tree in pickled_trees]
 
+    #NOTE: Overwrite the state_dict function from `torch` to create the model state dict also including all the HYPERPARAMS
+    # (also the ones related to the ad_model)
+
     def state_dict(self, *args, **kwargs):
         state_dict = super().state_dict(*args, **kwargs)
         # add all the hyperparameters to the state dict
@@ -334,16 +356,7 @@ class PatchIF(nn.Module):
             state_dict[p] = getattr(self, p)
         return state_dict
 
-    def get_state_dict(self) -> dict:
-
-        state_dict = dict()
-
-        for p in self.HYPERPARAMS:
-            if p == "trees":
-                self.trees_to_pickle(shape=(self.d,))
-            state_dict[p] = getattr(self, p)
-
-        return state_dict
+    #NOTE: Overwrite the load_state_dict function from `torch` to load the model state dict also including all the HYPERPARAMS
 
     def load_state_dict(self, state_dict: dict, strict: bool = True):
 
