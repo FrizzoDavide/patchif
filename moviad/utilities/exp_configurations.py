@@ -5,6 +5,7 @@ Experiment configurations
 import numpy as np
 import random
 import torch
+import socket
 
 MODEL_NAMES = (
     "patchif",
@@ -26,12 +27,20 @@ DATASET_NAMES = (
     "miic",
 )
 
-#NOTE: Paths to the datasets in acquario3
-DATASET_PATHS = {
-    "mvtec": "/mnt/disk1/manuel_barusco/CL_VAD/adcl_paper/data/mvtec",
-    "realiad": "/mnt/disk1/yfbenkhalifa/datasets/realiad/realiad_256",
-    "visa": "/mnt/disk1/yfbenkhalifa/datasets/visa"
-}
+hostname = socket.gethostname()
+if hostname == "acquario3":
+    DATASET_PATHS = {
+        "mvtec": "/mnt/disk1/manuel_barusco/CL_VAD/adcl_paper/data/mvtec",
+        "realiad": "/mnt/disk1/yfbenkhalifa/datasets/realiad/realiad_256",
+        "visa": "/mnt/disk1/yfbenkhalifa/datasets/visa"
+    }
+elif hostname == "aquarium2":
+    DATASET_PATHS = {
+        "mvtec": "/mnt/mydisk/manuel_barusco/datasets/mvtec",
+        "visa": "/mnt/mydisk/manuel_barusco/datasets/visa"
+    }
+else:
+    print(f"In {hostname} there are not vad datasets")
 
 AD_LAYERS = {
     "mobilenet_v2": ["features.4", "features.7", "features.10"],
