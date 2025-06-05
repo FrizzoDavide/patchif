@@ -1,4 +1,5 @@
 import os
+import ipdb
 from random import sample
 from typing import Mapping, Union, Any, Dict, List, Tuple
 
@@ -181,6 +182,7 @@ class Padim(nn.Module):
             dist_list = self.compute_distances_diagonal(embedding_vectors)
         else:
             dist_list = self.compute_distances(embedding_vectors)
+
         # 4. upsample
         score_map = (
             F.interpolate(
