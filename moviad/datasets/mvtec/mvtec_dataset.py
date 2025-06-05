@@ -1,6 +1,6 @@
 import math
 from enum import Enum
-from typing import Optional
+from typing import Optional, Union
 
 from numpy.ma.core import indices
 from torchvision.transforms.functional import InterpolationMode
@@ -360,3 +360,175 @@ class MVTecDataset(IadDataset):
                 mask = torch.zeros(1, *self.gt_mask_size)
 
             return image, label, anomaly_label, mask.int(), path
+
+# Method to load the test and training data
+def load_train_test_data(
+    task: TaskType,
+    root: str,
+    category: str,
+    train_split: Split = Split.TRAIN,
+    test_split: Split = Split.TEST,
+    norm: bool = True,
+    img_size: tuple[int, int] = (224, 224),
+    gt_mask_size: Optional[tuple[int, int]] = None,
+    preload_imgs: bool = True,
+    batch_size: int = 32,
+    return_loaders: bool = False
+) -> Union[
+        tuple[torch.utils.data.Dataset, torch.utils.data.DataLoader, torch.utils.data.Dataset, torch.utils.data.DataLoader], # return_loaders = True
+        tuple[torch.utils.data.Dataset, torch.utils.data.Dataset] # return_loaders = False
+    ]:
+
+    """
+    Load the training and test data from MVTec AD and return the dataloaders
+
+    Args:
+        task (TaskType): Task type, ``classification``, ``detection`` or ``segmentation``.
+        root (str): Path to the root of the dataset.
+        category (str): Sub-category of the dataset, e.g. 'bottle'.
+        train_split (Split): Split for the training data.
+        test_split (Split): Split for the test data.
+        norm (bool): Whether to normalize the images.
+        img_size (tuple[int, int]): Size of the input images.
+        gt_mask_size (Optional[tuple[int, int]]): Size of the ground truth masks.
+        preload_imgs (bool): Whether to preload images into memory.
+        batch_size (int): Batch size for the dataloaders.
+
+    Returns:
+        tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
+            The training and test dataset in case `return_loaders` is False.
+        tuple[torch.utils.data.Dataset, torch.utils.data.DataLoader, torch.utils.data.Dataset, torch.utils.data.DataLoader]:
+            The training and test dataset and their respective dataloaders in case `return_loaders` is True.
+    """
+
+    print('#'* 50)
+    print(f"Defining training dataset MVTecDataset category {category}")
+    print('#'* 50)
+
+    train_dataset = MVTecDataset(
+        task = task,
+        root = root,
+        category = category,
+        split = train_split,
+        norm = norm,
+        img_size = img_size,
+        gt_mask_size = gt_mask_size,
+        preload_imgs = preload_imgs
+    )
+
+    train_dataset.load_dataset()
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size = batch_size,
+        shuffle = True,
+        pin_memory = True
+    )
+
+    test_dataset = MVTecDataset(
+        task = task,
+        root = root,
+        category = category,
+        split = test_split,
+        norm = norm,
+        img_size = img_size,
+        gt_mask_size = gt_mask_size,
+        preload_imgs = preload_imgs
+    )
+
+    print('#'* 50)
+    print(f"Defining test dataset MVTecDataset category {category}")
+    print('#'* 50)
+
+    test_dataset.load_dataset()
+    test_loader = torch.utils.data.DataLoader(
+        test_dataset,
+        batch_size = batch_size,
+        shuffle = True,
+        pin_memory = True
+    )
+
+    if return_loaders:
+        return train_dataset, train_loader, test_dataset, test_loader
+
+    return train_dataset, test_dataset
+
+
+# Method to load the training and test dataset and contaminate them
+
+def load_contaminate_train_test_data(
+    task: TaskType,
+    root: str,
+    category: str,
+    train_split: Split,
+    test_split: Split,
+    norm: bool = True,
+    img_size: tuple[int, int] = (224, 224),
+    gt_mask_size: Optional[tuple[int, int]] = None,
+    preload_imgs: bool = True,
+    batch_size: int = 32,
+    contamination_ratio: float = 0.1,
+    seed: int = 0,
+) -> tuple[torch.utils.data.Dataset, torch.utils.data.DataLoader, torch.utils.data.Dataset, torch.utils.data.DataLoader, int]:
+
+    """
+    Load the training and test data from MVTec AD and contaminate the training data
+    with anomalies from the test data.
+
+    Args:
+        task (TaskType): Task type, ``classification``, ``detection`` or ``segmentation``.
+        root (str): Path to the root of the dataset.
+        category (str): Sub-category of the dataset, e.g. 'bottle'.
+        train_split (Split): Split for the training data.
+        test_split (Split): Split for the test data.
+        norm (bool): Whether to normalize the images.
+        img_size (tuple[int, int]): Size of the input images.
+        gt_mask_size (Optional[tuple[int, int]]): Size of the ground truth masks.
+        preload_imgs (bool): Whether to preload images into memory.
+        batch_size (int): Batch size for the dataloaders.
+        contamination_ratio (float): Ratio of anomalies to add to the training set.
+        seed (int): Random seed for reproducibility.
+
+    Returns:
+        tuple[torch.utils.data.Dataset, torch.utils.data.DataLoader, torch.utils.data.Dataset, torch.utils.data.DataLoader, int]:
+            The training dataset, training dataloader, test dataset, test dataloader and the size of the contamination set.
+    """
+
+    train_dataset, test_dataset = load_train_test_data(
+        task = task,
+        root = root,
+        category = category,
+        train_split = train_split,
+        test_split = test_split,
+        norm = norm,
+        img_size = img_size,
+        gt_mask_size = gt_mask_size,
+        preload_imgs = preload_imgs,
+        batch_size = batch_size,
+        return_loaders = False
+    )
+
+    contamination_set_size = train_dataset.contaminate(
+        source = test_dataset,
+        ratio = contamination_ratio,
+        seed = seed
+    )
+
+    #NOTE: After the application of the contamination method, the train_dataset
+    # and test_dataset objects are updated with the contaminated data and so we need to
+    # call again the load_dataset method and re create the dataloaders
+
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size = batch_size,
+        shuffle = True,
+        pin_memory = True
+    )
+
+    test_loader = torch.utils.data.DataLoader(
+        test_dataset,
+        batch_size = batch_size,
+        shuffle = True,
+        pin_memory = True
+    )
+
+    return train_dataset, train_loader, test_dataset, test_loader, contamination_set_size
