@@ -23,7 +23,7 @@ from exiffi_core.model import IsolationForest as IF
 from ...utilities.custom_feature_extractor_trimmed import CustomFeatureExtractor
 from ...utilities.get_sizes import *
 
-from moviad.models.padim.padim import EMBEDDING_SIZES
+from moviad.utilities.exp_configurations import EMBEDDING_SIZES
 
 from moviad.models.patchcore.anomaly_map import AnomalyMapGenerator
 
@@ -43,6 +43,7 @@ class PatchIF(nn.Module):
         "max_depth",
         "t_d",
         "d",
+        "subsample_ratio",
         "trees"
     ]
 
@@ -51,6 +52,7 @@ class PatchIF(nn.Module):
         backbone_model_name: str = "mobilenet_v2",
         layers_idxs: list = ["fetures.4", "features.7", "features.10"],
         input_size: tuple[int] = (224,224),
+        subsample_ratio: float = 1.0,
         ad_model_type: str = "eif",
         plus: bool = True,
         eta: float = 1.5,
@@ -65,6 +67,7 @@ class PatchIF(nn.Module):
         self.backbone_model_name = backbone_model_name
         self.layers_idxs = layers_idxs
         self.input_size = input_size
+        self.subsample_ratio = subsample_ratio
         self.ad_model_type = ad_model_type
         self.plus = plus
         self.eta = eta
@@ -269,13 +272,6 @@ class PatchIF(nn.Module):
         # and will give use the anomaly score → at the end we will have a tensor of shape
         # (B, H, W) with the anomaly scores for each patch
 
-        # Copilot method:
-        # anomaly_scores = []
-        # for i in range(embedding_vectors.size(2)):
-        #     patch_embedding = embedding_vectors[:, :, i, :].view(-1, embedding_vectors.size(1))
-        #     anomaly_score = self.ad_model.predict(patch_embedding)
-        #     anomaly_scores.append(anomaly_score)
-
         # My method
         anomaly_scores = np.zeros(shape=(embedding_vectors.size(0),embedding_vectors.size(2),embedding_vectors.size(3)))
         for i in range(embedding_vectors.size(2)):
@@ -284,7 +280,7 @@ class PatchIF(nn.Module):
                 anomaly_score = self.ad_model.predict(patch_embedding.double().cpu().numpy())
                 anomaly_scores[:, i, j] = anomaly_score
 
-        # 4. upsample
+        # 4. upsample to the original image size (e.g. from (8,28,28) to (8,224,224))
         score_map = (
             F.interpolate(
                 input=torch.tensor(anomaly_scores).unsqueeze(1),
@@ -364,7 +360,10 @@ class PatchIF(nn.Module):
         for p in self.HYPERPARAMS:
             if p == "trees":
                 self.trees_from_pickle(pickled_trees=state_dict[p])
-            setattr(self, p, state_dict[p])
+            if p == "subsample_ratio":
+                setattr(self, p, 1.0)
+            else:
+                setattr(self, p, state_dict[p])
 
         # load the backbone model
         self.load_backbone()

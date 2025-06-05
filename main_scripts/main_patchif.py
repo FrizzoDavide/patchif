@@ -18,7 +18,7 @@ from torch.utils.data.dataset import Dataset
 
 from moviad.models.patchif.patchif import PatchIF
 from moviad.trainers.trainer_patchif import TrainerPatchIF
-from moviad.datasets.mvtec.mvtec_dataset import MVTecDataset, CATEGORIES
+from moviad.datasets.mvtec.mvtec_dataset import MVTecDataset, CATEGORIES, load_train_test_data, load_contaminate_train_test_data
 from moviad.utilities.evaluator import Evaluator, append_results
 from moviad.utilities.configurations import TaskType, Split
 from moviad.utilities.exp_configurations import DATASET_PATHS, AD_LAYERS, set_exp_seed
@@ -121,62 +121,41 @@ def main(args):
                 print('#'* 50)
 
                 print('#'* 50)
-                print(f"Defining training dataset MVTecDataset category {category}")
+                print("Loading training and test datasets")
                 print('#'* 50)
-
-                train_dataset = MVTecDataset(
-                    task = TaskType.SEGMENTATION,
-                    root = DATASET_PATHS[args.dataset_name],
-                    category = category,
-                    split = Split.TRAIN,
-                    norm = True,
-                    img_size = IMAGE_INPUT_SIZE,
-                    gt_mask_size = None,
-                    preload_imgs = True
-                )
-
-                train_dataset.load_dataset()
-                train_loader = torch.utils.data.DataLoader(
-                    train_dataset,
-                    batch_size=BATCH_SIZE,
-                    shuffle=True,
-                    pin_memory=True
-                )
-
-                print('#'* 50)
-                print(f"Defining test dataset MVTecDataset category {category}")
-                print('#'* 50)
-
-                test_dataset = MVTecDataset(
-                    task = TaskType.SEGMENTATION,
-                    root = DATASET_PATHS[args.dataset_name],
-                    category = category,
-                    split = Split.TEST,
-                    norm = True,
-                    img_size = IMAGE_INPUT_SIZE,
-                    gt_mask_size = None,
-                    preload_imgs = True
-                )
-
-                test_dataset.load_dataset()
-                test_loader = torch.utils.data.DataLoader(
-                    test_dataset,
-                    batch_size = BATCH_SIZE,
-                    shuffle = True,
-                    pin_memory = True
-                )
 
                 if args.contaminate:
 
-                    print('#'* 50)
-                    print(f"Contaminating the train dataset with contamination ratio {args.contamination_ratio}")
-                    print(f"Seed: {seed}")
-                    print('#'* 50)
+                    train_dataset, train_loader, test_dataset, test_loader, contamination_set_size = load_contaminate_train_test_data(
+                        task = TaskType.SEGMENTATION,
+                        root = DATASET_PATHS[args.dataset_name],
+                        category = category,
+                        train_split = Split.TRAIN,
+                        test_split = Split.TEST,
+                        norm = True,
+                        img_size = IMAGE_INPUT_SIZE,
+                        gt_mask_size = None,
+                        preload_imgs = True,
+                        batch_size = BATCH_SIZE,
+                        contamination_ratio = args.contamination_ratio,
+                        seed = seed,
+                    )
 
-                    contamination_set_size = train_dataset.contaminate(
-                        source = test_dataset,
-                        ratio = args.contamination_ratio,
-                        seed = seed
+                else:
+
+                    contamination_set_size = 0
+                    train_dataset, train_loader, test_dataset, test_loader = load_train_test_data(
+                        task = TaskType.SEGMENTATION,
+                        root = DATASET_PATHS[args.dataset_name],
+                        category = category,
+                        train_split = Split.TRAIN,
+                        test_split = Split.TEST,
+                        norm = True,
+                        img_size = IMAGE_INPUT_SIZE,
+                        gt_mask_size = None,
+                        preload_imgs = True,
+                        batch_size = BATCH_SIZE,
+                        return_loaders = True,
                     )
 
                 print('#'* 50)
@@ -199,6 +178,7 @@ def main(args):
                 model = PatchIF(
                     backbone_model_name = args.backbone_model_name,
                     layers_idxs = AD_LAYERS[args.backbone_model_name],
+                    subsample_ratio = args.subsample_ratio,
                     ad_model_type = args.ad_model_name,
                     n_estimators = args.n_estimators,
                     max_nodes = args.max_nodes,
@@ -268,6 +248,7 @@ def main(args):
                 model = PatchIF(
                     backbone_model_name = args.backbone_model_name,
                     layers_idxs = AD_LAYERS[args.backbone_model_name],
+                    subsample_ratio = args.subsample_ratio,
                     ad_model_type = args.ad_model_name,
                     n_estimators = args.n_estimators,
                     plus = args.plus,
@@ -299,24 +280,49 @@ def main(args):
 
                 model.eval()
 
-                test_dataset = MVTecDataset(
-                    task = TaskType.SEGMENTATION,
-                    root = DATASET_PATHS[args.dataset_name],
-                    category = category,
-                    split = Split.TEST,
-                    norm = True,
-                    img_size = IMAGE_INPUT_SIZE,
-                    gt_mask_size = None,
-                    preload_imgs = True
-                )
+                print('#'* 50)
+                print("Loading the test dataset")
+                print('#'* 50)
 
-                test_dataset.load_dataset()
-                test_loader = torch.utils.data.DataLoader(
-                    test_dataset,
-                    batch_size = BATCH_SIZE,
-                    shuffle = True,
-                    pin_memory = True
-                )
+                if args.contaminate:
+
+                    train_dataset, train_loader, test_dataset, test_loader, contamination_set_size = load_contaminate_train_test_data(
+                        task = TaskType.SEGMENTATION,
+                        root = DATASET_PATHS[args.dataset_name],
+                        category = category,
+                        train_split = Split.TRAIN,
+                        test_split = Split.TEST,
+                        norm = True,
+                        img_size = IMAGE_INPUT_SIZE,
+                        gt_mask_size = None,
+                        preload_imgs = True,
+                        batch_size = BATCH_SIZE,
+                        contamination_ratio = args.contamination_ratio,
+                        seed = seed,
+                    )
+
+                else:
+
+                    contamination_set_size = 0
+                    train_dataset, train_loader, test_dataset, test_loader = load_train_test_data(
+                        task = TaskType.SEGMENTATION,
+                        root = DATASET_PATHS[args.dataset_name],
+                        category = category,
+                        train_split = Split.TRAIN,
+                        test_split = Split.TEST,
+                        norm = True,
+                        img_size = IMAGE_INPUT_SIZE,
+                        gt_mask_size = None,
+                        preload_imgs = True,
+                        batch_size = BATCH_SIZE,
+                        return_loaders = True,
+                    )
+
+                print('#'* 50)
+                print(f"-- TEST DATASET INFORMATION --")
+                print(f"Length: {len(test_dataset)}")
+                print(f"Contamination ratio: {test_dataset.compute_contamination_ratio()}")
+                print('#'* 50)
 
                 if args.save_metrics:
 
@@ -422,6 +428,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_estimators", type=int, default=100, help="Number of estimators for the IF/EIF model, for patchif")
     parser.add_argument("--max_nodes", type=int, default=10000, help="Maximum number of nodes per tree in the IF/EIF model, for patchif")
     parser.add_argument("--plus", action='store_true', help="Flag to use the EIF or EIF+ AD model")
+    parser.add_argument("--subsample_ratio", type=float, default=1.0, help="Subsample ratio for the memory bank")
     # dataset parameters
     parser.add_argument("--categories", type=str, nargs="+", default=CATEGORIES)
     parser.add_argument("--contaminate", action="store_true", help="Contaminate the dataset with anomalies")

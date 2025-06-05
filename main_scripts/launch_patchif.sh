@@ -2,18 +2,22 @@
 
 script_path="main_patchif.py"
 
-
 # model parameters
-backbone="wide_resnet50_2"
-ad_model="if"
+backbone="mobilenet_v2"
+# backbone="wide_resnet50_2"
+ad_model="eif"
 n_estimators=100
 max_nodes=10000
+subsample_ratio=1.0
 
 # dataset parameters
 categories=("pill")
+# categories=("hazelnut")
+# categories=("screw")
+# categories=("wood")
 contamination_ratio=0.1
 
-# device
+# memory_bank
 device_num=2
 
 # experiment parameters
@@ -27,6 +31,8 @@ mode="${1:-'train'}"
 
 # experiment name
 
+#NOTE: `pill` caegory experiments
+
 # NOTE: PatchIF_EIF+
 # exp_name="04-06-2025_07-52-28_PatchIF_eif_mobilenet_v2_n_estimators_100_contamination_0.1"
 # best_seed=0
@@ -34,12 +40,33 @@ mode="${1:-'train'}"
 # NOTE: PatchIF_IF
 # mobilenet_v2
 # exp_name="04-06-2025_12-21-18_PatchIF_if_mobilenet_v2_n_estimators_300_contamination_0.1"
+# best_seed=0
 # wide_resnet50_2
-exp_name="04-06-2025_14-50-06_PatchIF_if_wide_resnet50_2_n_estimators_100_contamination_0.1"
-best_seed=4
+# exp_name="04-06-2025_14-50-06_PatchIF_if_wide_resnet50_2_n_estimators_100_contamination_0.1"
+# best_seed=4
+# experiment 3
+# exp_name="05-06-2025_08-28-18_PatchIF_if_mobilenet_v2_n_estimators_100_contamination_0.1"
+# best_seed=0
+
 
 #NOTE: PatchIF_EIF
-# exp_name="04-06-2025_08-44-19_PatchIF_eif_mobilenet_v2_n_estimators_100_contamination_0.1"
+exp_name="05-06-2025_15-12-21_PatchIF_eif_mobilenet_v2_n_estimators_100_contamination_0.1"
+best_seed=0
+
+#NOTE: `hazelnut` category experiments
+
+# NOTE: PatchIF_IF
+# exp_name="05-06-2025_10-03-16_PatchIF_if_mobilenet_v2_n_estimators_100_contamination_0.1"
+# best_seed=0
+
+#NOTE: `screw` category experiments
+
+# NOTE: PatchIF_IF
+# exp_name="05-06-2025_10-30-56_PatchIF_if_mobilenet_v2_n_estimators_100_contamination_0.1"
+# best_seed=0
+
+#NOTE: `wood` category experiments
+# exp_name="05-06-2025_13-56-21_PatchIF_if_mobilenet_v2_n_estimators_100_contamination_0.1"
 # best_seed=0
 
 if [ "$mode" = "train" ]; then
@@ -52,6 +79,7 @@ if [ "$mode" = "train" ]; then
     --ad_model_name $ad_model \
     --n_estimators $n_estimators \
     --max_nodes $max_nodes \
+    --subsample_ratio $subsample_ratio \
     --categories "${categories[@]}" \
     --contaminate \
     --contamination_ratio $contamination_ratio \
@@ -72,6 +100,7 @@ elif [ "$mode" = "test" ]; then
     --ad_model_name $ad_model \
     --n_estimators $n_estimators \
     --max_nodes $max_nodes \
+    --subsample_ratio $subsample_ratio \
     --categories "${categories[@]}" \
     --contaminate \
     --contamination_ratio $contamination_ratio \
@@ -91,6 +120,7 @@ elif [ "$mode" = "anomaly_maps" ]; then
     --ad_model_name $ad_model \
     --n_estimators $n_estimators \
     --max_nodes $max_nodes \
+    --subsample_ratio $subsample_ratio \
     --categories "${categories[@]}" \
     --contaminate \
     --contamination_ratio $contamination_ratio \

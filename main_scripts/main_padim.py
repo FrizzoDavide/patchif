@@ -11,6 +11,7 @@ from moviad.trainers.trainer_padim import PadimTrainer
 from moviad.datasets.mvtec.mvtec_dataset import MVTecDataset
 from moviad.utilities.evaluator import Evaluator, append_results
 from moviad.utilities.configurations import TaskType, Split
+from moviad.utilities.exp_configurations import DATASET_PATHS
 
 BATCH_SIZE = 8
 IMAGE_INPUT_SIZE = (224, 224)
@@ -172,19 +173,12 @@ def main(args):
                     layers_idxs=ad_layers_idxs,
                 )
                 padim.to(device)
-                trainer = PadimTrainer(
-                    model=padim,
-                    device=device,
-                    save_path=save_path,
-                    data_path=data_path,
-                    class_name=category_name,
-                )
 
                 train_dataset = MVTecDataset(
-                    TaskType.SEGMENTATION,
-                    data_path,
-                    category_name,
-                    Split.TRAIN,
+                    task = TaskType.SEGMENTATION,
+                    root = DATASET_PATHS["mvtec"],
+                    category = category_name,
+                    split = Split.TRAIN,
                     img_size=img_input_size,
                 )
 
@@ -194,7 +188,28 @@ def main(args):
                     train_dataset, batch_size=batch_size, pin_memory=True
                 )
 
-                trainer.train(train_dataloader)
+                test_dataset = MVTecDataset(
+                    task = TaskType.SEGMENTATION,
+                    root = DATASET_PATHS["mvtec"],
+                    category = category_name,
+                    split = Split.TEST,
+                    img_size=img_input_size,
+                )
+
+                test_dataset.load_dataset()
+
+                test_dataloader = DataLoader(
+                    test_dataset, batch_size=batch_size, pin_memory=True
+                )
+
+                trainer = PadimTrainer(
+                    model=padim,
+                    device=device,
+                    train_dataloader = train_dataloader,
+                    test_dataloader = test_dataloader,
+                )
+
+                trainer.train()
 
             if args.test:
                 print("---- PaDiM test ----")

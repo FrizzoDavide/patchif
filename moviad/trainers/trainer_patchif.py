@@ -6,9 +6,19 @@ import os
 import ipdb
 from tqdm import tqdm
 import torch
+from random import sample
 
 from moviad.models.patchif.patchif import PatchIF
 from moviad.trainers.trainer import Trainer, TrainerResult
+from moviad.utilities.manage_files import generate_path
+
+#TODO: Start setting up paths to save the memory bank somewhere
+# pwd = os.getcwd()
+# patchif_results_path = os.path.join(os.path.dirname(pwd))
+#
+# print(f"pwd: {pwd}")
+# print(f"patchif_results_path: {patchif_results_path}")
+# ipdb.set_trace()
 
 class TrainerPatchIF(Trainer):
 
@@ -60,13 +70,40 @@ class TrainerPatchIF(Trainer):
 
         # 3. Fit the self.ad_model on the memory bank
 
+        #NOTE: Comment this line → try an experiment with a memory bank shaped as:
+        # (B, C, H, W)
         # Reshape the embedding vectors to make them 2 dimensional?
-        embedding_vectors = embedding_vectors.view(-1, embedding_vectors.size(1))
+        # embedding_vectors = embedding_vectors.view(-1, embedding_vectors.size(1))
+
+        #NOTE: Random subsampling the rows of the memory bank
+        # Sample a random subset of the row indexes of the memory bank
+        if self.model.subsample_ratio == 1.0:
+            memory_bank = embedding_vectors
+            print('#'* 50)
+            print("Memory bank is not subsampled")
+            print('#'* 50)
+        else:
+            print('#'* 50)
+            print(f"Subsampling memory bank with ratio: {self.model.subsample_ratio}")
+            print('#'* 50)
+            subsample_size = int(embedding_vectors.shape[0]*(1 - self.model.subsample_ratio))
+            random_rows = torch.tensor(sample(range(embedding_vectors.shape[0]),subsample_size))
+            print("First elements of random rows:")
+            print(random_rows[:10])
+            memory_bank = torch.index_select(
+                embedding_vectors, 0, random_rows.to(embedding_vectors.device)
+            )
+
+        # Save the memory bank to a file
+        # memory_bank_path = generate_path(
+        # )
+
         print('#'* 50)
         print(f"Fitting {self.model.ad_model.name} model on the memory bank")
-        print(f"Memory bank shape: {embedding_vectors.shape}")
+        print(f"Memory bank shape: {memory_bank.shape}")
         print('#'* 50)
-        self.model.ad_model.fit(embedding_vectors.cpu().numpy())
+
+        self.model.ad_model.fit(memory_bank.cpu().numpy())
         # Set the trees attribute of PatchIF to the trees attribute of the ad_model
         self.model.trees = self.model.ad_model.trees
 

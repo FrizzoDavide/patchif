@@ -51,6 +51,34 @@ AD_LAYERS = {
     "resnet18": ["layer1", "layer2", "layer3"]
 }
 
+EMBEDDING_SIZES = {
+    "phinet_1.2_0.5_6_downsampling": {
+        (4, 5, 6): (200, 50),
+        (5, 6, 7): (400, 100),
+        (6, 7, 8): (576, 144),
+        (2, 6, 7): (376, 94),
+    },
+    "micronet-m1": {
+        (1, 2, 3): (40, 10),
+        (2, 3, 4): (64, 16),
+        (3, 4, 5): (112, 28),
+        (2, 4, 5): (112, 28),
+    },
+    "mcunet-in3": {
+        (3, 6, 9): (80, 20),
+        (6, 9, 12): (112, 28),
+        (9, 12, 15): (184, 46),
+        (2, 6, 14): (136, 34),
+    },
+    "mobilenet_v2": {
+        ("features.4", "features.7", "features.10"): (160, 40),
+        ("features.7", "features.10", "features.13"): (224, 56),
+        ("features.10", "features.13", "features.16"): (320, 80),
+        ("features.3", "features.8", "features.14"): (248, 62),
+    },
+    "wide_resnet50_2": {("layer1", "layer2", "layer3"): (1792, 550)},
+}
+
 def set_exp_seed(
         seed: int = 0,
 ) -> None:
