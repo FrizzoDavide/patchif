@@ -194,13 +194,39 @@ def main(args):
                 print("Defining PatchIF trainer")
                 print('#'* 50 )
 
-                trainer = TrainerPatchIF(
-                    model = model,
-                    train_dataloader = train_loader,
-                    test_dataloader = test_loader,
-                    device = device,
-                    logger = None,
-                )
+                if args.save_memory_bank:
+
+                    memory_bank_dirpath = generate_path(
+                        basepath = patchif_results_path,
+                        folders = [
+                            "memory_bank",
+                            args.dataset_name,
+                            category,
+                            args.backbone_model_name,
+                        ]
+                    )
+
+                    trainer = TrainerPatchIF(
+                        model = model,
+                        train_dataloader = train_loader,
+                        test_dataloader = test_loader,
+                        device = device,
+                        logger = None,
+                        save_memory_bank = args.save_memory_bank,
+                        memory_bank_path = memory_bank_dirpath,
+                        dataset_name = args.dataset_name,
+                        category = category,
+                    )
+
+                else:
+
+                    trainer = TrainerPatchIF(
+                        model = model,
+                        train_dataloader = train_loader,
+                        test_dataloader = test_loader,
+                        device = device,
+                        logger = None,
+                    )
 
                 # Set paths
                 model_dirpath_seed = generate_path(
@@ -413,6 +439,7 @@ if __name__ == "__main__":
     parser.add_argument("--inference", action="store_true",help="Run inference")
     parser.add_argument("--debug", action="store_true",help="Run debug")
     parser.add_argument("--save_figures", action="store_true",help="Save figures")
+    parser.add_argument("--save_memory_bank", action="store_true",help="Save the memory bank")
     parser.add_argument("--save_metrics", action="store_true",help="Save metrics")
     parser.add_argument("--save_model", action="store_true",help="Save model")
     parser.add_argument("--save_logs", action="store_true",help="Save logs")

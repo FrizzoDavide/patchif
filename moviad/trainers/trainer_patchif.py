@@ -10,15 +10,11 @@ from random import sample
 
 from moviad.models.patchif.patchif import PatchIF
 from moviad.trainers.trainer import Trainer, TrainerResult
-from moviad.utilities.manage_files import generate_path
+from moviad.utilities.manage_files import save_element
 
 #TODO: Start setting up paths to save the memory bank somewhere
-# pwd = os.getcwd()
-# patchif_results_path = os.path.join(os.path.dirname(pwd))
-#
-# print(f"pwd: {pwd}")
-# print(f"patchif_results_path: {patchif_results_path}")
-# ipdb.set_trace()
+pwd = os.getcwd()
+patchif_results_path = os.path.join(pwd,"patchif_results")
 
 class TrainerPatchIF(Trainer):
 
@@ -27,12 +23,26 @@ class TrainerPatchIF(Trainer):
         model: PatchIF,
         train_dataloader: torch.utils.data.DataLoader,
         test_dataloader: torch.utils.data.DataLoader,
-        device,
+        device: torch.device,
         logger=None,
+        save_memory_bank: bool = False,
+        memory_bank_path: str = pwd,
+        dataset_name: str = "mvtec",
+        category: str = "pill"
     ):
         """
+        Constructur TrainerPatchIF
+
         Args:
+            model: PatchIF model to train
+            train_dataloader: DataLoader for the training set
+            test_dataloader: DataLoader for the test set
             device: one of the following strings: 'cpu', 'cuda', 'cuda:0', ...
+            logger: logger to log the training process
+            save_memory_bank: boolean to indicate if the memory bank should be saved
+            memory_bank_path: path to save the memory bank
+            dataset_name: name of the dataset
+            category: category of the dataset
         """
         super().__init__(
             model,
@@ -41,6 +51,11 @@ class TrainerPatchIF(Trainer):
             device,
             logger
         )
+
+        self.save_memory_bank = save_memory_bank
+        self.memory_bank_path = memory_bank_path
+        self.dataset_name = dataset_name
+        self.category = category
 
     def train(self):
 
@@ -95,8 +110,24 @@ class TrainerPatchIF(Trainer):
             )
 
         # Save the memory bank to a file
-        # memory_bank_path = generate_path(
-        # )
+        if self.save_memory_bank:
+            filename = f"memory_bank_{self.model.backbone_model_name}_{self.dataset_name}_{self.category}"
+
+            memory_bank_dict = {
+                "memory_bank": memory_bank.cpu().numpy(),
+            }
+
+            save_element(
+                element = memory_bank_dict,
+                dirpath = self.memory_bank_path,
+                filename = filename,
+                filetype = "pickle",
+                no_time = True
+            )
+
+            print('#'* 50)
+            print(f"Memory bank saved to {self.memory_bank_path}/{filename}.pickle")
+            print('#'* 50)
 
         print('#'* 50)
         print(f"Fitting {self.model.ad_model.name} model on the memory bank")
