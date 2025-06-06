@@ -5,7 +5,7 @@ script_path="main_patchif.py"
 # model parameters
 backbone="mobilenet_v2"
 # backbone="wide_resnet50_2"
-ad_model="eif"
+ad_model="if"
 n_estimators=100
 max_nodes=10000
 subsample_ratio=1.0
@@ -48,7 +48,6 @@ mode="${1:-'train'}"
 # exp_name="05-06-2025_08-28-18_PatchIF_if_mobilenet_v2_n_estimators_100_contamination_0.1"
 # best_seed=0
 
-
 #NOTE: PatchIF_EIF
 exp_name="05-06-2025_15-12-21_PatchIF_eif_mobilenet_v2_n_estimators_100_contamination_0.1"
 best_seed=0
@@ -81,6 +80,7 @@ if [ "$mode" = "train" ]; then
     --max_nodes $max_nodes \
     --subsample_ratio $subsample_ratio \
     --categories "${categories[@]}" \
+    --save_memory_bank \
     --contaminate \
     --contamination_ratio $contamination_ratio \
     --save_model \
