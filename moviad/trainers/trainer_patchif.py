@@ -28,7 +28,9 @@ class TrainerPatchIF(Trainer):
         save_memory_bank: bool = False,
         memory_bank_path: str = pwd,
         dataset_name: str = "mvtec",
-        category: str = "pill"
+        category: str = "pill",
+        contaminate: bool = False,
+        contaminate_ratio: float = 0.1,
     ):
         """
         Constructur TrainerPatchIF
@@ -43,6 +45,8 @@ class TrainerPatchIF(Trainer):
             memory_bank_path: path to save the memory bank
             dataset_name: name of the dataset
             category: category of the dataset
+            contaminate: boolean to indicate if the dataset should be contaminated
+            contaminate_ratio: ratio of contamination to apply to the dataset
         """
         super().__init__(
             model,
@@ -56,6 +60,8 @@ class TrainerPatchIF(Trainer):
         self.memory_bank_path = memory_bank_path
         self.dataset_name = dataset_name
         self.category = category
+        self.contaminate = contaminate
+        self.contaminate_ratio = contaminate_ratio
 
     def train(self):
 
@@ -111,7 +117,10 @@ class TrainerPatchIF(Trainer):
 
         # Save the memory bank to a file
         if self.save_memory_bank:
-            filename = f"memory_bank_{self.model.backbone_model_name}_{self.dataset_name}_{self.category}"
+            if self.contaminate:
+                filename = f"memory_bank_{self.model.backbone_model_name}_{self.dataset_name}_{self.category}_contamination_{self.contaminate_ratio}"
+            else:
+                filename = f"memory_bank_{self.model.backbone_model_name}_{self.dataset_name}_{self.category}"
 
             memory_bank_dict = {
                 "memory_bank": memory_bank.cpu().numpy(),
@@ -128,6 +137,7 @@ class TrainerPatchIF(Trainer):
             print('#'* 50)
             print(f"Memory bank saved to {self.memory_bank_path}/{filename}.pickle")
             print('#'* 50)
+            ipdb.set_trace()
 
         print('#'* 50)
         print(f"Fitting {self.model.ad_model.name} model on the memory bank")

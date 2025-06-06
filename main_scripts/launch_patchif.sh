@@ -81,7 +81,6 @@ if [ "$mode" = "train" ]; then
     --subsample_ratio $subsample_ratio \
     --categories "${categories[@]}" \
     --save_memory_bank \
-    --contaminate \
     --contamination_ratio $contamination_ratio \
     --save_model \
     --save_metrics \
