@@ -17,7 +17,7 @@ MODEL_NAMES = (
     "fastflow",
     "past",
     "rd4ad",
-    "simplenet"
+    "simplenet",
 )
 
 DATASET_NAMES = (
@@ -32,15 +32,15 @@ if hostname == "acquario3":
     DATASET_PATHS = {
         "mvtec": "/mnt/disk1/manuel_barusco/CL_VAD/adcl_paper/data/mvtec",
         "realiad": "/mnt/disk1/yfbenkhalifa/datasets/realiad/realiad_256",
-        "visa": "/mnt/disk1/yfbenkhalifa/datasets/visa"
+        "visa": "/mnt/disk1/yfbenkhalifa/datasets/visa",
     }
 elif hostname == "aquarium2":
     DATASET_PATHS = {
         "mvtec": "/mnt/mydisk/manuel_barusco/datasets/mvtec",
-        "visa": "/mnt/mydisk/manuel_barusco/datasets/visa"
+        "visa": "/mnt/mydisk/manuel_barusco/datasets/visa",
     }
 else:
-    print(f"In {hostname} there are not vad datasets")
+    print(f"In {hostname} there are no vad datasets")
 
 AD_LAYERS = {
     "mobilenet_v2": ["features.4", "features.7", "features.10"],
@@ -48,7 +48,7 @@ AD_LAYERS = {
     "phinet_1.2_0.5_6_downsampling": [2, 6, 7],
     "micronet-m1": [2, 4, 5],
     "mcunet-in3": [3, 6, 9],
-    "resnet18": ["layer1", "layer2", "layer3"]
+    "resnet18": ["layer1", "layer2", "layer3"],
 }
 
 EMBEDDING_SIZES = {
@@ -79,10 +79,10 @@ EMBEDDING_SIZES = {
     "wide_resnet50_2": {("layer1", "layer2", "layer3"): (1792, 550)},
 }
 
-def set_exp_seed(
-        seed: int = 0,
-) -> None:
 
+def set_exp_seed(
+    seed: int = 0,
+) -> None:
     """
     Set the seed for reproducibility for the different libraries used in the project.
 
@@ -100,7 +100,6 @@ def set_exp_seed(
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-    print('#'* 50)
+    print("#" * 50)
     print(f"Seed set to {seed}")
-    print('#'* 50)
-
+    print("#" * 50)

@@ -12,12 +12,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn.functional as F
-#from memory_profiler import profile
+
+# from memory_profiler import profile
 from torch import Tensor, nn
 from random import sample
 from scipy.ndimage import gaussian_filter
 
 from exiffi_core.model import ExtendedIsolationForest as EIF
+from exiffi_core.model import ExtendedTree
 from exiffi_core.model import IsolationForest as IF
 
 from ...utilities.custom_feature_extractor_trimmed import CustomFeatureExtractor
@@ -26,6 +28,7 @@ from ...utilities.get_sizes import *
 from moviad.utilities.exp_configurations import EMBEDDING_SIZES
 
 from moviad.models.patchcore.anomaly_map import AnomalyMapGenerator
+
 
 class PatchIF(nn.Module):
     """
@@ -44,14 +47,14 @@ class PatchIF(nn.Module):
         "t_d",
         "d",
         "subsample_ratio",
-        "trees"
+        "trees",
     ]
 
     def __init__(
         self,
         backbone_model_name: str = "mobilenet_v2",
         layers_idxs: list = ["fetures.4", "features.7", "features.10"],
-        input_size: tuple[int] = (224,224),
+        input_size: tuple[int] = (224, 224),
         subsample_ratio: float = 1.0,
         ad_model_type: str = "eif",
         plus: bool = True,
@@ -60,9 +63,9 @@ class PatchIF(nn.Module):
         n_estimators: int = 100,
         max_samples: int = 256,
         max_depth: str = "auto",
-        device: torch.device = torch.device("cpu")
+        device: torch.device = torch.device("cpu"),
     ):
-        super(PatchIF,self).__init__()
+        super(PatchIF, self).__init__()
 
         self.backbone_model_name = backbone_model_name
         self.layers_idxs = layers_idxs
@@ -87,7 +90,7 @@ class PatchIF(nn.Module):
         # Load the anomaly detection model
         self.load_ad_model()
 
-        #NOTE: set the trees attribute to None →
+        # NOTE: set the trees attribute to None →
         # it will contain the list of `ExtendedTree` objects composing the forest
         # after training
         self.trees = None
@@ -100,40 +103,41 @@ class PatchIF(nn.Module):
         return f"PatchIF_{self.ad_model.name}"
 
     def load_ad_model(self):
-
         if self.ad_model_type == "eif":
             self.ad_model = EIF(
-                plus = self.plus,
-                eta = self.eta,
-                max_nodes = self.max_nodes,
-                n_estimators = self.n_estimators,
-                max_samples = self.max_samples,
-                max_depth = self.max_depth,
+                plus=self.plus,
+                eta=self.eta,
+                max_nodes=self.max_nodes,
+                n_estimators=self.n_estimators,
+                max_samples=self.max_samples,
+                max_depth=self.max_depth,
             )
 
         elif self.ad_model_type == "if":
             self.ad_model = IF(
-                n_estimators = self.n_estimators,
-                max_samples = self.max_samples,
-                max_depth = self.max_depth
+                n_estimators=self.n_estimators,
+                max_samples=self.max_samples,
+                max_depth=self.max_depth,
             )
         else:
-            raise ValueError(f"Unknown anomaly detection model type: {self.ad_model_type}. Supported types: 'eif', 'if'.")
+            raise ValueError(
+                f"Unknown anomaly detection model type: {self.ad_model_type}. Supported types: 'eif', 'if'."
+            )
 
-        #NOTE: If the `self` has the `trees` attribute (in case we are calling
+        # NOTE: If the `self` has the `trees` attribute (in case we are calling
         # the load_state_dict method) then we set the `self.ad_model.trees` attribute
         # to the `self.trees` attribute
 
         if hasattr(self, "trees") and self.trees is not None:
             self.ad_model.trees = self.trees
 
-        #NOTE: Add the `corrected_depths` attribute to all the `ExtendedTree` objects
+        # NOTE: Add the `corrected_depths` attribute to all the `ExtendedTree` objects
         # in the `self.ad_model.trees` list
         if hasattr(self.ad_model, "trees") and self.ad_model.trees is not None:
             for tree in self.ad_model.trees:
                 tree.corrected_depths = tree.get_corrected_depths()
 
-    #NOTE: For the moment I am copying exactly the methods from Padim
+    # NOTE: For the moment I am copying exactly the methods from Padim
 
     def load_backbone(self):
         """
@@ -162,11 +166,7 @@ class PatchIF(nn.Module):
         ]
 
     @staticmethod
-    def embedding_concat(
-            x: torch.Tensor,
-            y: torch.Tensor
-    ) -> torch.Tensor:
-
+    def embedding_concat(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """
         Concatenate the embeddings of two tensors x and y
 
@@ -192,8 +192,7 @@ class PatchIF(nn.Module):
         return z
 
     def raw_feature_maps_to_embeddings(
-        self,
-        layer_outputs: Dict[str, List[torch.Tensor]]
+        self, layer_outputs: Dict[str, List[torch.Tensor]]
     ):
         """
         Given a dict of lists of outputs of the layers, concatenate the feature maps and
@@ -221,7 +220,6 @@ class PatchIF(nn.Module):
         return embedding_vectors
 
     def forward(self, x):
-
         """
         In training mode just the patch embeddings are returned. Then in the Trainer class
         the embeddings obtained from all the input samples will be grouped together to obtain the memory bank
@@ -232,7 +230,7 @@ class PatchIF(nn.Module):
         Successfully the anomaly map and the image level anomaly score will be computed.
 
         Args:
-            x: Input tensor
+            x: torch.Tensor: Input tensor
 
         Returns:
             self.layers_outputs: dict[str, list[torch.Tensor]]: Dictionary with the outputs of the layers, returned in training mode.
@@ -262,22 +260,32 @@ class PatchIF(nn.Module):
         # 2. use the feature maps to get the embeddings
         embedding_vectors = self.raw_feature_maps_to_embeddings(layer_outputs)
 
-        #NOTE: embedding_vectors should have shape (B, C, H, W).
+        # NOTE: embedding_vectors should have shape (B, C, H, W).
         # To make them usable for self.ad_model we need to reshape them as follows:
         # embedding_vectors = embedding_vectors.view(-1,embedding_vectors.size(1))
 
-        #NOTE: In order to be able to produce the anomaly map I have to iterate over
+        # NOTE: In order to be able to produce the anomaly map I have to iterate over
         # all the patches (over all the H and W dimensions) and apply the predict method
         # on each one of them → so the predict method will be applied on a (32,40) tensor
         # and will give use the anomaly score → at the end we will have a tensor of shape
         # (B, H, W) with the anomaly scores for each patch
 
         # My method
-        anomaly_scores = np.zeros(shape=(embedding_vectors.size(0),embedding_vectors.size(2),embedding_vectors.size(3)))
+        anomaly_scores = np.zeros(
+            shape=(
+                embedding_vectors.size(0),
+                embedding_vectors.size(2),
+                embedding_vectors.size(3),
+            )
+        )
         for i in range(embedding_vectors.size(2)):
             for j in range(embedding_vectors.size(3)):
-                patch_embedding = embedding_vectors[:, :, i, j].view(-1, embedding_vectors.size(1))
-                anomaly_score = self.ad_model.predict(patch_embedding.double().cpu().numpy())
+                patch_embedding = embedding_vectors[:, :, i, j].view(
+                    -1, embedding_vectors.size(1)
+                )
+                anomaly_score = self.ad_model.predict(
+                    patch_embedding.double().cpu().numpy()
+                )
                 anomaly_scores[:, i, j] = anomaly_score
 
         # 4. upsample to the original image size (e.g. from (8,28,28) to (8,224,224))
@@ -306,13 +314,9 @@ class PatchIF(nn.Module):
 
         return score_map, img_scores
 
-    #NOTE: Function to convert the `ExtendedTree` objects contained in `self.trees` to a pickable format
+    # NOTE: Function to convert the `ExtendedTree` objects contained in `self.trees` to a pickable format
 
-    def trees_to_pickle(
-            self,
-            shape: tuple[int,...]
-    ):
-
+    def trees_to_pickle(self, shape: tuple[int, ...]):
         """
         Convert the trees to a pickable format.
 
@@ -323,14 +327,15 @@ class PatchIF(nn.Module):
             None → the function just modifies the `self.trees` attribute of the PatchIF object
         """
 
-        assert self.trees is not None, "Trees not initialized, to initialize the trees you have to train the model"
+        assert (
+            self.trees is not None
+        ), "Trees not initialized, to initialize the trees you have to train the model"
 
         self.trees = [tree.to_pickle(shape) for tree in self.trees]
 
-    #NOTE: Function to convert the pickled trees back to the `ExtendedTree` objects
+    # NOTE: Function to convert the pickled trees back to the `ExtendedTree` objects
 
     def trees_from_pickle(self, pickled_trees: List[ExtendedTree]):
-
         """
         Convert the pickled trees back to the ExtendedTree objects.
 
@@ -338,9 +343,11 @@ class PatchIF(nn.Module):
             pickled_trees: List of ExtendedTree objects in a pickable format.
         """
 
-        self.trees = [tree.from_pickle(num_nodes=len(tree.nodes)) for tree in pickled_trees]
+        self.trees = [
+            tree.from_pickle(num_nodes=len(tree.nodes)) for tree in pickled_trees
+        ]
 
-    #NOTE: Overwrite the state_dict function from `torch` to create the model state dict also including all the HYPERPARAMS
+    # NOTE: Overwrite the state_dict function from `torch` to create the model state dict also including all the HYPERPARAMS
     # (also the ones related to the ad_model)
 
     def state_dict(self, *args, **kwargs):
@@ -352,10 +359,9 @@ class PatchIF(nn.Module):
             state_dict[p] = getattr(self, p)
         return state_dict
 
-    #NOTE: Overwrite the load_state_dict function from `torch` to load the model state dict also including all the HYPERPARAMS
+    # NOTE: Overwrite the load_state_dict function from `torch` to load the model state dict also including all the HYPERPARAMS
 
     def load_state_dict(self, state_dict: dict, strict: bool = True):
-
         # load the hyperparameters
         for p in self.HYPERPARAMS:
             if p == "trees":
@@ -368,7 +374,7 @@ class PatchIF(nn.Module):
         # load the backbone model
         self.load_backbone()
 
-        #TODO: Here I probably have to call self.load_ad_model() and I have to
+        # TODO: Here I probably have to call self.load_ad_model() and I have to
         # initialize the IF/EIF model with also self.trees attribute equal to the `trees`
         # attribute of the state_dict
         self.load_ad_model()
@@ -423,24 +429,24 @@ class PatchIF(nn.Module):
         # Create a figure and axes
         fig, axes = plt.subplots(1, 3, figsize=(10, 5))
 
-        #convert the images to RGB
+        # convert the images to RGB
         original_image = cv.cvtColor(original_image, cv.COLOR_BGR2RGB)
         output_image = cv.cvtColor(output_image, cv.COLOR_BGR2RGB)
 
         # Display the input image
         axes[0].imshow(original_image)
-        axes[0].set_title(f'Original Image {anomaly_label}')
-        axes[0].axis('off')
+        axes[0].set_title(f"Original Image {anomaly_label}")
+        axes[0].axis("off")
 
         # Display the mask image
-        axes[1].imshow(mask.squeeze(), cmap ='gray')
-        axes[1].set_title(f'Mask')
-        axes[1].axis('off')
+        axes[1].imshow(mask.squeeze(), cmap="gray")
+        axes[1].set_title("Mask")
+        axes[1].axis("off")
 
         # Display the final image
         axes[2].imshow(output_image)
-        axes[2].set_title(f'Heatmap {pred_score}')
-        axes[2].axis('off')
+        axes[2].set_title(f"Heatmap {pred_score}")
+        axes[2].axis("off")
 
         # Save the plot
         if label == 0:
@@ -448,5 +454,5 @@ class PatchIF(nn.Module):
         else:
             anomaly_map_filename = f"anomaly_{anomaly_label}_{filename}"
 
-        plt.savefig(os.path.join(dirpath,anomaly_map_filename))
+        plt.savefig(os.path.join(dirpath, anomaly_map_filename))
         plt.close(fig)
