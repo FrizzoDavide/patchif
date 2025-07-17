@@ -48,7 +48,7 @@ class Evaluator:
         gt_masks_list, true_img_scores = (list(), list())
         pred_masks, pred_img_scores = (list(), list())
 
-        for images, labels, _ , masks, _ in tqdm(self.test_dataloader, desc="Eval"):
+        for images, labels, _, masks, _ in tqdm(self.test_dataloader, desc="Eval"):
             # get anomaly map and score
             with torch.no_grad():
                 anomaly_maps, anomaly_scores = model(images.to(self.device))
@@ -70,7 +70,6 @@ class Evaluator:
             else:
                 pred_masks.extend(anomaly_maps)
                 pred_img_scores.extend(anomaly_scores)
-
 
         gt_masks_list = np.asarray(gt_masks_list)
         true_img_scores = np.asarray(true_img_scores)
@@ -109,14 +108,12 @@ class Evaluator:
             "pxl_f1": pxl_f1,
             "img_pr_auc": img_pr_auc,
             "pxl_pr_auc": pxl_pr_auc,
-            "pxl_au_pro": pxl_au_pro
+            "pxl_au_pro": pxl_au_pro,
         }
 
         return metrics
 
-           
     def evaluate_single_images(self, model):
-
         model.eval()
 
         # compute the threshold as equal precision and recall on the test dataset
@@ -197,7 +194,6 @@ class Evaluator:
 
         return metrics, threshold, gt_anom_mask_lst, pred_anom_map_lst
 
-
     @staticmethod
     def get_threshold(gt: np.ndarray, score: np.ndarray) -> float:
         """
@@ -224,6 +220,7 @@ class Evaluator:
 
         return threshold
 
+
 def append_results(
     output_path: Union[str, os.PathLike],
     category: str,
@@ -234,13 +231,13 @@ def append_results(
     backbone: str,
     input_img_size: Optional[tuple[int, int]],
     output_img_size: Optional[tuple[int, int]],
-    weights: Optional[str] = "IMAGENET1K_V2", #NOTE: Hardcoded, should be changed
+    weights: Optional[str] = "IMAGENET1K_V2",  # NOTE: Hardcoded, should be changed
 ):
     """
     Save the results of the evaluation in a file
     """
 
-    #NOTE: Removed `epcohs` and `bootstrap_layer` arguments since they are not used anymore
+    # NOTE: Removed `epcohs` and `bootstrap_layer` arguments since they are not used anymore
 
     df = pd.DataFrame(
         {
@@ -268,10 +265,10 @@ def append_results(
     df.index.name = "Metric"
     df.columns = ["Value"]
 
-    print('#'* 50)
+    print("#" * 50)
     print(f"Metrics results for category {category}")
     print(df.to_markdown())
-    print('#'* 50)
+    print("#" * 50)
 
     if os.path.isfile(output_path):
         old_df = pd.read_csv(output_path)

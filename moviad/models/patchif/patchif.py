@@ -283,6 +283,7 @@ class PatchIF(nn.Module):
                 patch_embedding = embedding_vectors[:, :, i, j].view(
                     -1, embedding_vectors.size(1)
                 )
+                # embedding (rows, features)
                 anomaly_score = self.ad_model.predict(
                     patch_embedding.double().cpu().numpy()
                 )
